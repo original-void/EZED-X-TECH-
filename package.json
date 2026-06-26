@@ -1,20 +1,13 @@
 {
   "name": "ezed-x-tech-bot",
   "version": "1.0.0",
-  "description": "EZED X TECH WhatsApp Bot Web",
   "main": "index.js",
-  "author": "EZED X TECH",
-  "license": "MIT",
-  "scripts": {
-    "start": "node index.js"
-  },
+  "scripts": { "start": "node index.js" },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.5",
     "express": "^4.18.2",
-    "pino": "^8.19.0",
-    "qrcode": "^1.5.3"
-  },
-  "engines": {
-    "node": ">=18.0.0"
+    "pino": "^8.17.2",
+    "qrcode": "^1.5.3",
+    "sticker-formatter": "^3.1.0"
   }
 }
