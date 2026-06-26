@@ -18,7 +18,6 @@ const OWNER_NUMBER = '254769532338@s.whatsapp.net';
 let currentQR = null;
 let sock;
 
-// SAFE ASCII MENU - No unicode box chars to crash Render
 const MENU_TEXT = `
 *================================*
 *      [ EZED X TECH BOT ]       *
@@ -38,22 +37,16 @@ const MENU_TEXT = `
 *  Status : Online ✅
 *
 *================================*
-*     Powered by EZED NYANUGA TECH     *
+*     Powered by EZED X TECH     *
 *================================*
 `;
 
 app.get('/', (req, res) => res.send(`<h1>${BOT_NAME} is running</h1><p><a href="/qr">Open QR</a></p>`));
-
 app.get('/qr', async (req, res) => {
     if (!currentQR) return res.send('<h2>No QR yet. Wait 10s and refresh.</h2>');
-    try {
-        const qrImage = await QRCode.toDataURL(currentQR);
-        res.send(`<h1>Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:300px;" />`);
-    } catch (e) {
-        res.send('Error generating QR');
-    }
+    const qrImage = await QRCode.toDataURL(currentQR);
+    res.send(`<h1>Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:300px;" />`);
 });
-
 app.listen(PORT, () => console.log(`Web server on port ${PORT}`));
 
 async function startBot() {
@@ -75,10 +68,7 @@ async function startBot() {
             currentQR = qr;
             try {
                 const qrBuffer = await QRCode.toBuffer(qr);
-                await sock.sendMessage(OWNER_NUMBER, { 
-                    image: qrBuffer, 
-                    caption: `*${BOT_NAME} QR Code*`
-                });
+                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} QR Code*` });
             } catch (e) {}
         }
         if (connection === 'open') {
@@ -97,8 +87,6 @@ async function startBot() {
         const from = msg.key.remoteJid;
         const sender = jidNormalizedUser(msg.key.participant || from);
         const isFromMe = msg.key.fromMe;
-
-        console.log('Sender JID:', sender, ' | Owner:', OWNER_NUMBER, ' | fromMe:', isFromMe);
 
         const isAllowed = (sender === OWNER_NUMBER) || isFromMe;
         if (!isAllowed) {
@@ -119,6 +107,7 @@ async function startBot() {
                 const start = Date.now();
                 await sock.sendMessage(from, { text: '🏓 Pinging...' });
                 const speed = Date.now() - start;
+                // FIXED LINE - no backslashes
                 await sock.sendMessage(from, { text: `🏓 *Pong!* \n⚡ *Speed:* \`${speed}ms`\n*${BOT_NAME}* is online` });
                 break;
             case '.time':
