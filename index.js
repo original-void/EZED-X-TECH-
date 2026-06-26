@@ -4,10 +4,7 @@ const {
     DisconnectReason, 
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
-    jidNormalizedUser,
-    downloadMediaMessage,
-    Sticker, 
-    StickerTypes
+    jidNormalizedUser
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
@@ -36,7 +33,6 @@ const MENU_TEXT =
 '* 3..time > Kenya time 🕒 \n' +
 '* 4..jid > Get chat ID\n' +
 '* 5..owner > Show owner\n' +
-'* 6..sticker> Image to sticker\n' +
 '*\n' +
 '* *--- [ STATUS ] ---*\n' +
 '* Mode : Owner Only\n' +
@@ -124,21 +120,6 @@ async function startBot() {
                 break;
             case '.owner':
                 await sock.sendMessage(from, { text: '👑 *Owner:* `254769532338`' });
-                break;
-            case '.sticker':
-                if (msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage) {
-                    const quoted = msg.message.extendedTextMessage?.contextInfo?.quotedMessage || msg.message;
-                    const buffer = await downloadMediaMessage({ message: quoted }, 'buffer', {});
-                    const sticker = new Sticker(buffer, {
-                        pack: BOT_NAME,
-                        author: 'EZED X TECH',
-                        type: StickerTypes.FULL,
-                        categories: ['🤖'],
-                    });
-                    await sock.sendMessage(from, await sticker.toMessage());
-                } else {
-                    await sock.sendMessage(from, { text: '❌ Reply to an image with.sticker' });
-                }
                 break;
         }
     });
