@@ -18,7 +18,24 @@ const OWNER_NUMBER = '254769532338@s.whatsapp.net';
 let currentQR = null;
 let sock;
 
-const MENU_TEXT = `*🤖 ${BOT_NAME}*\n\nAvailable Commands:\n.menu - Show this menu\n.ping - Check bot speed\n.time - Kenya time\n.help - Show commands\nPowered by EZED X TECH`;
+const MENU_TEXT = `
+╭━━━〔 *🤖 ${BOT_NAME}* 〕━━━╮
+┃ 
+┃ *👑 Owner Panel* 
+┃ 
+┣━━━〔 *📜 COMMANDS* 〕━━━┫
+┃
+┃ 1️⃣ *\`.menu`*  → Show this panel
+┃ 2️⃣ *\`.ping`*  → Check bot speed ⚡
+┃ 3️⃣ *\`.time`*  → Kenya time 🕒 
+┃ 4️⃣ *\`.help`*  → Show commands
+┃
+┣━━━〔 *ℹ️ STATUS* 〕━━━┫
+┃  *Mode:* \`Owner + Bot Only\`
+┃  *Uptime:* \`Online\`
+┃
+╰━━━〔 *EZED X TECH* 〕━━━╯
+`;
 
 app.get('/', (req, res) => res.send(`<h1>${BOT_NAME} is running</h1><p><a href="/qr">Open QR</a></p>`));
 app.get('/qr', async (req, res) => {
@@ -86,11 +103,11 @@ async function startBot() {
                 const start = Date.now();
                 await sock.sendMessage(from, { text: '🏓 Pinging...' });
                 const speed = Date.now() - start;
-                await sock.sendMessage(from, { text: `🏓 Pong! \n⚡ Speed: ${speed}ms\n${BOT_NAME} is online` });
+                await sock.sendMessage(from, { text: `🏓 *Pong!* \n⚡ *Speed:* \`${speed}ms`\n*${BOT_NAME}* is online` });
                 break;
             case '.time':
                 const now = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
-                await sock.sendMessage(from, { text: `🕒 Kenya Time: ${now}` });
+                await sock.sendMessage(from, { text: `🕒 *Kenya Time:* \`${now}\`` });
                 break;
         }
     });
