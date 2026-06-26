@@ -1,7 +1,7 @@
 {
   "name": "ezed-x-tech-bot",
   "version": "1.0.0",
-  "description": "EZED X TECH WhatsApp Bot with button menu",
+  "description": "EZED X TECH WhatsApp Bot Web",
   "main": "index.js",
   "author": "EZED X TECH",
   "license": "MIT",
@@ -10,8 +10,8 @@
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.5",
+    "express": "^4.18.2",
     "pino": "^8.19.0",
-    "qrcode-terminal": "^0.12.0",
     "qrcode": "^1.5.3"
   },
   "engines": {
