@@ -18,36 +18,35 @@ const OWNER_NUMBER = '254769532338@s.whatsapp.net';
 let currentQR = null;
 let sock;
 
-const MENU_TEXT = `
-*================================*
-* [ EZED X TECH BOT ] *
-*================================*
-*
-* *👑 OWNER PANEL* 
-*
-* *--- [ COMMANDS ] ---*
-*
-* 1..menu > Show this panel
-* 2..ping > Check bot speed ⚡
-* 3..time > Kenya time 🕒 
-* 4..help > Show commands
-*
-* *--- [ STATUS ] ---*
-* Mode : Owner + Bot Only
-* Status : Online ✅
-*
-*================================*
-* Powered by EZED X TECH *
-*================================*
-`;
+const MENU_TEXT =
+'*================================*\n' +
+'* [ EZED X TECH BOT ] *\n' +
+'*================================*\n' +
+'*\n' +
+'* *👑 OWNER PANEL* \n' +
+'*\n' +
+'* *--- [ COMMANDS ] ---*\n' +
+'*\n' +
+'* 1..menu > Show this panel\n' +
+'* 2..ping > Check bot speed ⚡\n' +
+'* 3..time > Kenya time 🕒 \n' +
+'* 4..help > Show commands\n' +
+'*\n' +
+'* *--- [ STATUS ] ---*\n' +
+'* Mode : Owner + Bot Only\n' +
+'* Status : Online ✅\n' +
+'*\n' +
+'*================================*\n' +
+'* Powered by EZED X TECH *\n' +
+'*================================*';
 
-app.get('/', (req, res) => res.send(`<h1>${BOT_NAME} is running</h1><p><a href="/qr">Open QR</a></p>`));
+app.get('/', (req, res) => res.send('<h1>' + BOT_NAME + ' is running</h1><p><a href="/qr">Open QR</a></p>'));
 app.get('/qr', async (req, res) => {
     if (!currentQR) return res.send('<h2>No QR yet. Wait 10s and refresh.</h2>');
     const qrImage = await QRCode.toDataURL(currentQR);
-    res.send(`<h1>Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:300px;" />`);
+    res.send('<h1>Scan ' + BOT_NAME + ' QR</h1><img src="' + qrImage + '" style="width:300px;" />');
 });
-app.listen(PORT, () => console.log(`Web server on port ${PORT}`));
+app.listen(PORT, () => console.log('Web server on port ' + PORT));
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
@@ -68,13 +67,13 @@ async function startBot() {
             currentQR = qr;
             try {
                 const qrBuffer = await QRCode.toBuffer(qr);
-                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} QR Code*` });
+                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: '*' + BOT_NAME + ' QR Code*' });
             } catch (e) {}
         }
         if (connection === 'open') {
             currentQR = null;
-            console.log(`${BOT_NAME} Connected`);
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} is online. Owner + Bot access: ON` });
+            console.log(BOT_NAME + ' Connected');
+            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' is online. Owner + Bot access: ON' });
         } else if (connection === 'close') {
             if (lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
         }
@@ -90,7 +89,7 @@ async function startBot() {
 
         const isAllowed = (sender === OWNER_NUMBER) || isFromMe;
         if (!isAllowed) {
-            await sock.sendMessage(from, { text: `❌ Access Denied. ${BOT_NAME} is private.` });
+            await sock.sendMessage(from, { text: '❌ Access Denied. ' + BOT_NAME + ' is private.' });
             return;
         }
 
@@ -107,11 +106,12 @@ async function startBot() {
                 const start = Date.now();
                 await sock.sendMessage(from, { text: '🏓 Pinging...' });
                 const speed = Date.now() - start;
-                await sock.sendMessage(from, { text: `🏓 *Pong!* \n⚡ *Speed:* \`${speed}ms`\n*${BOT_NAME}* is online` });
+                // 100% SAFE - NO BACKTICKS
+                await sock.sendMessage(from, { text: '🏓 *Pong!* \n⚡ *Speed:* `' + speed + 'ms`\n*' + BOT_NAME + '* is online' });
                 break;
             case '.time':
                 const now = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
-                await sock.sendMessage(from, { text: `🕒 *Kenya Time:* \`${now}\`` });
+                await sock.sendMessage(from, { text: '🕒 *Kenya Time:* `' + now + '`' });
                 break;
         }
     });
