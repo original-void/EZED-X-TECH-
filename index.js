@@ -20,7 +20,12 @@ const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 let autoRecording = true;
 let autoTyping = true;
 let autoViewStatus = true;
-let autoLikeStatus = true; // Now = Auto DM instead of react
+let autoLikeStatus = true; // Auto DM Status with emoji
+let autoReadMessages = false; // NEW: Auto read DMs
+let autoReactDM = false; // NEW: Auto react to DMs
+
+// RANDOM EMOJI LIST 🔥
+const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶'];
 
 let currentQR = null;
 let sock;
@@ -44,7 +49,9 @@ const MENU_TEXT =
 '* 6..arec on/off > Auto Recording\n' +
 '* 7..atype on/off> Auto Typing\n' +
 '* 8..aview on/off> Auto View Status\n' +
-'* 9..alike on/off> Auto DM Status ❤️\n' +
+'* 9..alike on/off> Auto DM Status\n' +
+'* 10..aread on/off> Auto Read DMs\n' +
+'* 11..areact on/off> Auto React DMs\n' +
 '*\n' +
 '* *--- [ STATUS ] ---*\n' +
 '* Mode : Owner Only\n' +
@@ -95,7 +102,7 @@ async function startBot() {
         }
     });
 
-    // AUTO VIEW + AUTO DM STATUS LISTENER ✅ WORKS 100%
+    // AUTO VIEW + AUTO DM STATUS WITH RANDOM EMOJI ✅
     sock.ev.on('messages.upsert', async (m) => {
         const messages = m.messages;
         for (const msg of messages) {
@@ -109,10 +116,11 @@ async function startBot() {
                     console.log('Viewed status from:', msg.key.participant);
                 }
                 if (autoLikeStatus) {
+                    const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
                     await sock.sendMessage(msg.key.participant, { 
-                        text: '❤️ *EZED X TECH* liked your status' 
-                    }); // DM instead of react
-                    console.log('DMd status from:', msg.key.participant);
+                        text: randomEmoji + ' *EZED X TECH* liked your status' 
+                    });
+                    console.log('DMd status from:', msg.key.participant, 'with', randomEmoji);
                 }
             } catch (e) {
                 console.log('Status error:', e.message);
@@ -120,7 +128,7 @@ async function startBot() {
         }
     });
 
-    // MAIN COMMAND HANDLER
+    // MAIN COMMAND + AUTO DM REACT/READ HANDLER ✅
     sock.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
         if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
@@ -128,8 +136,30 @@ async function startBot() {
         const from = msg.key.remoteJid;
         const sender = jidNormalizedUser(msg.key.participant || from);
         const isFromMe = msg.key.fromMe;
+        const isGroup = from.endsWith('@g.us');
+        const isOwner = (sender === OWNER_NUMBER) || isFromMe;
 
-        if ((sender === OWNER_NUMBER) || isFromMe) {} else return;
+        // AUTO READ MESSAGES ✅
+        if (autoReadMessages &&!isFromMe) {
+            await sock.readMessages([msg.key]);
+            console.log('Auto read:', from);
+        }
+
+        // AUTO REACT TO DM ✅
+        if (autoReactDM &&!isFromMe &&!isGroup) {
+            try {
+                const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
+                await sock.sendMessage(from, { 
+                    react: { text: randomEmoji, key: msg.key } 
+                });
+                console.log('Auto reacted to:', from, 'with', randomEmoji);
+            } catch (e) {
+                console.log('React error:', e.message);
+            }
+        }
+
+        // OWNER ONLY COMMANDS
+        if (!isOwner) return;
 
         // AUTO TYPING + RECORDING
         if (autoTyping) await sock.sendPresenceUpdate('composing', from);
@@ -173,6 +203,10 @@ async function startBot() {
             case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 Auto View Status: `OFF`' }); break;
             case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `ON`' }); break;
             case '.alike off': autoLikeStatus = false; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `OFF`' }); break;
+            case '.aread on': autoReadMessages = true; await sock.sendMessage(from, { text: '📖 Auto Read DMs: `ON`' }); break;
+            case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 Auto Read DMs: `OFF`' }); break;
+            case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 Auto React DMs: `ON`' }); break;
+            case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 Auto React DMs: `OFF`' }); break;
         }
         // Stop presence after 3s
         setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
