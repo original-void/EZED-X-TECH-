@@ -1,17 +1,19 @@
 const { 
     default: makeWASocket, 
     DisconnectReason, 
-    useMultiFileAuthState 
+    useMultiFileAuthState,
+    fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
-const qrcode = require('qrcode-terminal');
+const qrcodeTerminal = require('qrcode-terminal');
+const QRCode = require('qrcode');
 
-const BOT_NAME = 'EZED Bot';
+const BOT_NAME = 'EZED X TECH';
+const OWNER_NUMBER = '254112843071@s.whatsapp.net'; // <-- CHANGE THIS: Your number with 254, no +, + @s.whatsapp.net
 
-// Button Menu that shows when user types .menu
 const MENU = {
-    text: `*🤖 ${BOT_NAME} MENU*\n\nWelcome! Tap a button below 👇`,
-    footer: 'Reply with .menu anytime',
+    text: `*🤖 ${BOT_NAME}*\n\nWelcome! Tap a button below 👇`,
+    footer: 'Powered by EZED X TECH',
     templateButtons: [
         { index: 1, quickReplyButton: { displayText: '1. Ping 🏓', id: '.ping' } },
         { index: 2, quickReplyButton: { displayText: '2. Time 🕒', id: '.time' } },
@@ -21,31 +23,45 @@ const MENU = {
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+    const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
         logger: pino({ level: 'silent' }),
-        printQRInTerminal: true,
         auth: state,
-        browser: ['EZED Bot', 'Chrome', '1.0.0']
+        version,
+        browser: [BOT_NAME, 'Chrome', '1.0.0']
     });
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', (update) => {
+    sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
+        
         if (qr) {
-            console.log('Scan this QR with WhatsApp > Linked Devices');
-            qrcode.generate(qr, { small: true });
+            console.log('=== NEW QR GENERATED ===');
+            qrcodeTerminal.generate(qr, { small: true }); // for local PC testing
+            
+            // Send QR as image to owner so Render can scan
+            try {
+                const qrBuffer = await QRCode.toBuffer(qr);
+                await sock.sendMessage(OWNER_NUMBER, { 
+                    image: qrBuffer, 
+                    caption: `*${BOT_NAME} QR Code*\nScan this in WhatsApp > Linked Devices > Link a Device`
+                });
+                console.log(`QR sent to ${OWNER_NUMBER}`);
+            } catch (e) {
+                console.log('Not connected yet, can\'t send QR. Scan from terminal if local.');
+            }
         }
 
         if (connection === 'close') {
-            const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
-            console.log('Connection closed. Reconnecting:', shouldReconnect);
-            if (shouldReconnect) {
-                startBot();
-            }
+            const code = lastDisconnect.error?.output?.statusCode;
+            const shouldReconnect = code !== DisconnectReason.loggedOut;
+            console.log(`Connection closed: ${code}. Reconnecting: ${shouldReconnect}`);
+            if (shouldReconnect) startBot();
         } else if (connection === 'open') {
-            console.log('✅ Bot Connected Successfully');
+            console.log(`✅ ${BOT_NAME} Connected Successfully`);
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} is now online and ready.` });
         }
     });
 
@@ -61,7 +77,6 @@ async function startBot() {
 
         const command = text.toLowerCase().trim();
 
-        // COMMAND HANDLER
         switch (command) {
             case '.menu':
             case 'menu':
@@ -69,7 +84,7 @@ async function startBot() {
                 break;
 
             case '.ping':
-                await sock.sendMessage(from, { text: '🏓 Pong! Bot is alive' });
+                await sock.sendMessage(from, { text: '🏓 Pong! EZED X TECH is online' });
                 break;
 
             case '.time':
@@ -78,14 +93,7 @@ async function startBot() {
                 break;
 
             case '.help':
-                await sock.sendMessage(from, { text: `Send .menu to see all commands\n${BOT_NAME} by You` });
-                break;
-
-            default:
-                // Only reply if it's not a command, to avoid spam
-                if (!command.startsWith('.') && command.length > 0) {
-                    await sock.sendMessage(from, { text: 'Unknown command. Tap .menu' });
-                }
+                await sock.sendMessage(from, { text: `Send .menu for options\n${BOT_NAME}` });
                 break;
         }
     });
