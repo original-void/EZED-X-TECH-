@@ -24,7 +24,7 @@ let autoViewStatus = true;
 let autoLikeStatus = true; // Auto DM Status with emoji
 let autoReadMessages = false; // Auto read DMs both sides
 let autoReactDM = false; // Auto react to DMs
-let antiDelete = false; // NEW: Anti delete
+let antiDelete = false; // Anti delete
 
 // CACHE FOR ANTI-DELETE
 const msgStore = new Map();
@@ -37,7 +37,7 @@ let sock;
 
 const MENU_TEXT =
 '*================================*\n' +
-'* [ EZED X TECH BOT V5 ] *\n' +
+'* [ EZED X TECH BOT V5.1 ] *\n' +
 '*================================*\n' +
 '*\n' +
 '* *👑 OWNER PANEL* \n' +
@@ -102,7 +102,7 @@ async function startBot() {
         if (connection === 'open') {
             currentQR = null;
             console.log(BOT_NAME + ' Connected');
-            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' V5 is online. Ghost Mode: ON' });
+            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' V5.1 is online. Ghost Mode: ON' });
         } else if (connection === 'close') {
             if (lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
         }
@@ -134,115 +134,114 @@ async function startBot() {
         }
     });
 
-    // MAIN HANDLER: READ, REACT, CACHE, ANTIDELETE ✅
+    // MAIN HANDLER: READ, REACT, CACHE, ANTIDELETE ✅ V5.1
     sock.ev.on('messages.upsert', async (m) => {
-        const msg = m.messages[0];
-        if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
+        const messages = m.messages;
+        for (const msg of messages) {
+            if (!msg.message) continue;
+            if (msg.key.remoteJid === 'status@broadcast') continue;
 
-        const from = msg.key.remoteJid;
-        const sender = jidNormalizedUser(msg.key.participant || from);
-        const isFromMe = msg.key.fromMe;
-        const isGroup = from.endsWith('@g.us');
-        const isOwner = (sender === OWNER_NUMBER) || isFromMe;
+            const from = msg.key.remoteJid;
+            const sender = jidNormalizedUser(msg.key.participant || from);
+            const isFromMe = msg.key.fromMe;
+            const isGroup = from.endsWith('@g.us');
+            const isOwner = (sender === OWNER_NUMBER) || isFromMe;
 
-        // CACHE MESSAGE FOR ANTI-DELETE ✅
-        if (antiDelete &&!isGroup) {
-            msgStore.set(msg.key.id, { msg, from });
-            if (msgStore.size > 100) msgStore.delete(msgStore.keys().next().value); // Keep last 100
-        }
-
-        // AUTO READ BOTH SIDES ✅ You + Them
-        if (autoReadMessages) {
-            await sock.readMessages([msg.key]);
-            console.log('Auto read:', from, isFromMe? '[You]' : '[Them]');
-        }
-
-        // AUTO REACT TO DM FROM OTHERS ✅
-        if (autoReactDM &&!isFromMe &&!isGroup) {
-            try {
-                const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
-                await sock.sendMessage(from, { 
-                    react: { text: randomEmoji, key: msg.key } 
-                });
-                console.log('Auto reacted to:', from, 'with', randomEmoji);
-            } catch (e) {
-                console.log('React error:', e.message);
-            }
-        }
-
-        // OWNER ONLY COMMANDS
-        if (!isOwner) return;
-
-        // AUTO TYPING + RECORDING
-        if (autoTyping) await sock.sendPresenceUpdate('composing', from);
-        if (autoRecording) await sock.sendPresenceUpdate('recording', from);
-
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
-        const command = text.toLowerCase().trim();
-
-        switch (command) {
-            case '.menu':
-            case 'menu':
-            case '.help':
-                await sock.sendMessage(from, { 
-                    image: { url: MENU_IMAGE_URL }, 
-                    caption: MENU_TEXT 
-                });
-                break;
-            case '.ping':
-                const start = Date.now();
-                await sock.sendMessage(from, { text: '🏓 Pinging...' });
-                const speed = Date.now() - start;
-                await sock.sendMessage(from, { text: '🏓 *Pong!* \n⚡ *Speed:* `' + speed + 'ms`\n*' + BOT_NAME + '* is online' });
-                break;
-            case '.time':
-                const now = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
-                await sock.sendMessage(from, { text: '🕒 *Kenya Time:* `' + now + '`' });
-                break;
-            case '.jid':
-                await sock.sendMessage(from, { text: '🆔 *Chat JID:* `' + from + '`' });
-                break;
-            case '.owner':
-                await sock.sendMessage(from, { text: '👑 *Owner:* `254769532338`' });
-                break;
-
-            // AUTO TOGGLES
-            case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 Auto Recording: `ON`' }); break;
-            case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 Auto Recording: `OFF`' }); break;
-            case '.atype on': autoTyping = true; await sock.sendMessage(from, { text: '⌨️ Auto Typing: `ON`' }); break;
-            case '.atype off': autoTyping = false; await sock.sendMessage(from, { text: '⌨️ Auto Typing: `OFF`' }); break;
-            case '.aview on': autoViewStatus = true; await sock.sendMessage(from, { text: '👀 Auto View Status: `ON`' }); break;
-            case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 Auto View Status: `OFF`' }); break;
-            case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `ON`' }); break;
-            case '.alike off': autoLikeStatus = false; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `OFF`' }); break;
-            case '.aread on': autoReadMessages = true; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `ON`' }); break;
-            case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `OFF`' }); break;
-            case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 Auto React DMs: `ON`' }); break;
-            case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 Auto React DMs: `OFF`' }); break;
-            case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `ON`' }); break;
-            case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `OFF`' }); break;
-        }
-        // Stop presence after 3s
-        setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
-    });
-
-    // ANTIDELETE LISTENER ✅
-    sock.ev.on('messages.update', async (updates) => {
-        for (const { key, update } of updates) {
-            if (update.message === null && antiDelete) { // Message deleted
-                const stored = msgStore.get(key.id);
-                if (stored &&!key.remoteJid.endsWith('@g.us')) {
-                    const deletedMsg = stored.msg.message;
-                    const sender = key.participant || key.remoteJid;
+            // 1. ANTI-DELETE CATCHER ✅ protocolMessage type:0 = delete for everyone
+            if (antiDelete && msg.message.protocolMessage && msg.message.protocolMessage.type === proto.Message.ProtocolMessage.Type.REVOKE) {
+                const deletedKeyId = msg.message.protocolMessage.key.id;
+                const stored = msgStore.get(deletedKeyId);
+                if (stored &&!from.endsWith('@g.us')) {
                     const name = await sock.getName(sender) || sender.split('@')[0];
-                    
                     await sock.sendMessage(OWNER_NUMBER, { 
-                        text: `🗑️ *ANTIDELETE ALERT*\n\n*From:* ${name}\n*Chat:* ${stored.from}\n\n*Deleted Message:*`, 
+                        text: `🗑️ *ANTIDELETE ALERT*\n\n*From:* ${name}\n*Chat:* ${stored.from}\n*Time:* ${new Date().toLocaleTimeString('en-KE')}\n\n*Deleted Message:*`, 
                         quoted: stored.msg 
                     });
-                    console.log('AntiDelete triggered:', name);
+                    console.log('AntiDelete triggered via protocol:', name, deletedKeyId);
+                }
+                continue; // Stop here so it doesn't read the delete notice
+            }
+
+            // 2. CACHE MESSAGE FOR ANTI-DELETE ✅ Save all types from others only
+            if (antiDelete &&!isGroup &&!isFromMe) {
+                msgStore.set(msg.key.id, { msg, from });
+                if (msgStore.size > 200) msgStore.delete(msgStore.keys().next().value); // Cache 200
+                console.log('Cached msg:', msg.key.id);
+            }
+
+            // 3. AUTO READ BOTH SIDES ✅ You + Them
+            if (autoReadMessages) {
+                await sock.readMessages([msg.key]);
+                console.log('Auto read:', from, isFromMe? '[You]' : '[Them]');
+            }
+
+            // 4. AUTO REACT TO DM FROM OTHERS ✅
+            if (autoReactDM &&!isFromMe &&!isGroup) {
+                try {
+                    const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
+                    await sock.sendMessage(from, { 
+                        react: { text: randomEmoji, key: msg.key } 
+                    });
+                    console.log('Auto reacted to:', from, 'with', randomEmoji);
+                } catch (e) {
+                    console.log('React error:', e.message);
                 }
             }
+
+            // OWNER ONLY COMMANDS
+            if (!isOwner) continue;
+            
+            // AUTO TYPING + RECORDING
+            if (autoTyping) await sock.sendPresenceUpdate('composing', from);
+            if (autoRecording) await sock.sendPresenceUpdate('recording', from);
+
+            const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+            const command = text.toLowerCase().trim();
+
+            switch (command) {
+                case '.menu':
+                case 'menu':
+                case '.help':
+                    await sock.sendMessage(from, { 
+                        image: { url: MENU_IMAGE_URL }, 
+                        caption: MENU_TEXT 
+                    });
+                    break;
+                case '.ping':
+                    const start = Date.now();
+                    await sock.sendMessage(from, { text: '🏓 Pinging...' });
+                    const speed = Date.now() - start;
+                    await sock.sendMessage(from, { text: '🏓 *Pong!* \n⚡ *Speed:* `' + speed + 'ms`\n*' + BOT_NAME + '* is online' });
+                    break;
+                case '.time':
+                    const now = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
+                    await sock.sendMessage(from, { text: '🕒 *Kenya Time:* `' + now + '`' });
+                    break;
+                case '.jid':
+                    await sock.sendMessage(from, { text: '🆔 *Chat JID:* `' + from + '`' });
+                    break;
+                case '.owner':
+                    await sock.sendMessage(from, { text: '👑 *Owner:* `254769532338`' });
+                    break;
+
+                // AUTO TOGGLES
+                case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 Auto Recording: `ON`' }); break;
+                case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 Auto Recording: `OFF`' }); break;
+                case '.atype on': autoTyping = true; await sock.sendMessage(from, { text: '⌨️ Auto Typing: `ON`' }); break;
+                case '.atype off': autoTyping = false; await sock.sendMessage(from, { text: '⌨️ Auto Typing: `OFF`' }); break;
+                case '.aview on': autoViewStatus = true; await sock.sendMessage(from, { text: '👀 Auto View Status: `ON`' }); break;
+                case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 Auto View Status: `OFF`' }); break;
+                case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `ON`' }); break;
+                case '.alike off': autoLikeStatus = false; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `OFF`' }); break;
+                case '.aread on': autoReadMessages = true; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `ON`' }); break;
+                case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `OFF`' }); break;
+                case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 Auto React DMs: `ON`' }); break;
+                case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 Auto React DMs: `OFF`' }); break;
+                case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `ON`' }); break;
+                case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `OFF`' }); break;
+            }
+            // Stop presence after 3s
+            setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
         }
     });
 }
