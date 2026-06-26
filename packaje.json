@@ -1,0 +1,13 @@
+{
+  "name": "ezed-x-tech",
+  "version": "1.0.0",
+  "main": "index.js",
+  "engines": { "node": "18.x" },
+  "scripts": { "start": "node index.js" },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.5",
+    "pino": "^9.0.0",
+    "adm-zip": "^0.5.16",
+    "express": "^4.18.2"
+  }
+}
