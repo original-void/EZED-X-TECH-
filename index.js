@@ -20,7 +20,7 @@ const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 let autoRecording = true;
 let autoTyping = true;
 let autoViewStatus = true;
-let autoLikeStatus = true;
+let autoLikeStatus = true; // Now = Auto DM instead of react
 
 let currentQR = null;
 let sock;
@@ -44,7 +44,7 @@ const MENU_TEXT =
 '* 6..arec on/off > Auto Recording\n' +
 '* 7..atype on/off> Auto Typing\n' +
 '* 8..aview on/off> Auto View Status\n' +
-'* 9..alike on/off> Auto Like Status\n' +
+'* 9..alike on/off> Auto DM Status ❤️\n' +
 '*\n' +
 '* *--- [ STATUS ] ---*\n' +
 '* Mode : Owner Only\n' +
@@ -95,13 +95,13 @@ async function startBot() {
         }
     });
 
-    // AUTO VIEW + LIKE STATUS LISTENER V3 ✅ FIXED REACT
+    // AUTO VIEW + AUTO DM STATUS LISTENER ✅ WORKS 100%
     sock.ev.on('messages.upsert', async (m) => {
         const messages = m.messages;
         for (const msg of messages) {
             if (!msg.key || msg.key.remoteJid!== 'status@broadcast') continue;
-            if (msg.key.fromMe) continue; // Don't like your own status
-            if (!msg.key.participant) continue; // Skip if no participant
+            if (msg.key.fromMe) continue;
+            if (!msg.key.participant) continue;
 
             try {
                 if (autoViewStatus) {
@@ -110,12 +110,9 @@ async function startBot() {
                 }
                 if (autoLikeStatus) {
                     await sock.sendMessage(msg.key.participant, { 
-                        react: { 
-                            text: '❤️', 
-                            key: msg.key 
-                        } 
-                    }); // Like the status -> send to participant JID
-                    console.log('Liked status from:', msg.key.participant);
+                        text: '❤️ *EZED X TECH* liked your status' 
+                    }); // DM instead of react
+                    console.log('DMd status from:', msg.key.participant);
                 }
             } catch (e) {
                 console.log('Status error:', e.message);
@@ -174,8 +171,8 @@ async function startBot() {
             case '.atype off': autoTyping = false; await sock.sendMessage(from, { text: '⌨️ Auto Typing: `OFF`' }); break;
             case '.aview on': autoViewStatus = true; await sock.sendMessage(from, { text: '👀 Auto View Status: `ON`' }); break;
             case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 Auto View Status: `OFF`' }); break;
-            case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto Like Status: `ON`' }); break;
-            case '.alike off': autoLikeStatus = false; await sock.sendMessage(from, { text: '❤️ Auto Like Status: `OFF`' }); break;
+            case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `ON`' }); break;
+            case '.alike off': autoLikeStatus = false; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `OFF`' }); break;
         }
         // Stop presence after 3s
         setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
