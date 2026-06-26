@@ -71,7 +71,9 @@ async function startBot() {
         logger: pino({ level: 'silent' }),
         auth: state,
         version,
-        browser: [BOT_NAME, 'Chrome', '1.0.0']
+        browser: [BOT_NAME, 'Chrome', '1.0.0'],
+        markOnlineOnConnect: true,
+        syncFullHistory: false
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -94,16 +96,29 @@ async function startBot() {
         }
     });
 
-    // AUTO VIEW + LIKE STATUS LISTENER
+    // AUTO VIEW + LIKE STATUS LISTENER V2 ✅ FIXED
     sock.ev.on('messages.upsert', async (m) => {
-        for (const msg of m.messages) {
-            if (msg.key.remoteJid === 'status@broadcast' && autoViewStatus) {
-                await sock.readMessages([msg.key]); // Auto View
+        const messages = m.messages;
+        for (const msg of messages) {
+            if (!msg.key || msg.key.remoteJid!== 'status@broadcast') continue;
+            if (msg.key.fromMe) continue; // Don't like your own status
+
+            try {
+                if (autoViewStatus) {
+                    await sock.readMessages([msg.key]); // View the status
+                    console.log('Viewed status from:', msg.key.participant);
+                }
                 if (autoLikeStatus) {
                     await sock.sendMessage('status@broadcast', { 
-                        react: { text: '❤️', key: msg.key } 
-                    }); // Auto Like
+                        react: { 
+                            text: '❤️', 
+                            key: msg.key 
+                        } 
+                    }); // Like the status
+                    console.log('Liked status from:', msg.key.participant);
                 }
+            } catch (e) {
+                console.log('Status error:', e.message);
             }
         }
     });
