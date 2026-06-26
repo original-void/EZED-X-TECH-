@@ -1,67 +1,94 @@
-const crypto = require('crypto');
-global.crypto = crypto;
-
-const fs = require('fs');
-const AdmZip = require('adm-zip');
-const express = require('express');
-const { default: makeWASocket, DisconnectReason, useMultiFileAuthState, Browsers, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
+const { 
+    default: makeWASocket, 
+    DisconnectReason, 
+    useMultiFileAuthState 
+} = require('@whiskeysockets/baileys');
 const pino = require('pino');
+const qrcode = require('qrcode-terminal');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
-const AUTH_PATH = 'auth_info_ezed';
-const SECRET_ZIP = '/etc/secrets/auth_info_ezed.zip';
+const BOT_NAME = 'EZED Bot';
 
-// 1. Unzip session on boot if it doesn't exist
-if (!fs.existsSync(AUTH_PATH) && fs.existsSync(SECRET_ZIP)) {
-    console.log('Unzipping session from Secret Files...');
-    const zip = new AdmZip(SECRET_ZIP);
-    zip.extractAllTo(AUTH_PATH, true);
-    console.log('Session unzipped');
-} else if (!fs.existsSync(AUTH_PATH)) {
-    console.log('ERROR: No session found. Upload auth_info_ezed.zip to Secret Files');
-    process.exit(1);
-}
+// Button Menu that shows when user types .menu
+const MENU = {
+    text: `*🤖 ${BOT_NAME} MENU*\n\nWelcome! Tap a button below 👇`,
+    footer: 'Reply with .menu anytime',
+    templateButtons: [
+        { index: 1, quickReplyButton: { displayText: '1. Ping 🏓', id: '.ping' } },
+        { index: 2, quickReplyButton: { displayText: '2. Time 🕒', id: '.time' } },
+        { index: 3, quickReplyButton: { displayText: '3. Help ❓', id: '.help' } },
+    ]
+};
 
-// 2. Simple web server so Render doesn't sleep
-app.get('/', (req, res) => res.send('EZED X TECH is alive 💀'));
-app.listen(PORT, () => console.log(`Web on ${PORT}`));
-
-// 3. WhatsApp connection
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState(AUTH_PATH);
-    const { version } = await fetchLatestBaileysVersion();
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
     const sock = makeWASocket({
-        version,
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: true,
         auth: state,
-        logger: pino({ level:'silent' }),
-        browser: Browsers.ubuntu('Chrome'),
-        printQRInTerminal: false
+        browser: ['EZED Bot', 'Chrome', '1.0.0']
     });
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', (u) => {
-        const { connection, lastDisconnect } = u;
-        if (connection === 'open') console.log('✅ EZED X TECH CONNECTED');
+    sock.ev.on('connection.update', (update) => {
+        const { connection, lastDisconnect, qr } = update;
+        if (qr) {
+            console.log('Scan this QR with WhatsApp > Linked Devices');
+            qrcode.generate(qr, { small: true });
+        }
+
         if (connection === 'close') {
-            const code = lastDisconnect.error?.output?.statusCode;
-            if (code === DisconnectReason.loggedOut) {
-                console.log('Session logged out. Delete Secret File and re-upload');
-                process.exit(1);
+            const shouldReconnect = lastDisconnect.error?.output?.statusCode !== DisconnectReason.loggedOut;
+            console.log('Connection closed. Reconnecting:', shouldReconnect);
+            if (shouldReconnect) {
+                startBot();
             }
-            setTimeout(startBot, 3000);
+        } else if (connection === 'open') {
+            console.log('✅ Bot Connected Successfully');
         }
     });
 
-    sock.ev.on('messages.upsert', async ({ messages }) => {
-        const msg = messages[0];
+    sock.ev.on('messages.upsert', async (m) => {
+        const msg = m.messages[0];
         if (!msg.message || msg.key.fromMe) return;
+
         const from = msg.key.remoteJid;
-        const text = (msg.message.conversation || msg.message.extendedTextMessage?.text || '').toLowerCase().trim();
-        if (text === 'ping') await sock.sendMessage(from, { text: 'pong 💀 EZED X TECH is live' });
-        if (text === 'menu') await sock.sendMessage(from, { text: '*EZED X TECH* 💀\n\n*ping* *menu*' });
+        const text = msg.message.conversation 
+                  || msg.message.extendedTextMessage?.text 
+                  || msg.message.buttonsResponseMessage?.selectedButtonId 
+                  || '';
+
+        const command = text.toLowerCase().trim();
+
+        // COMMAND HANDLER
+        switch (command) {
+            case '.menu':
+            case 'menu':
+                await sock.sendMessage(from, MENU);
+                break;
+
+            case '.ping':
+                await sock.sendMessage(from, { text: '🏓 Pong! Bot is alive' });
+                break;
+
+            case '.time':
+                const now = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
+                await sock.sendMessage(from, { text: `🕒 Kenya Time: ${now}` });
+                break;
+
+            case '.help':
+                await sock.sendMessage(from, { text: `Send .menu to see all commands\n${BOT_NAME} by You` });
+                break;
+
+            default:
+                // Only reply if it's not a command, to avoid spam
+                if (!command.startsWith('.') && command.length > 0) {
+                    await sock.sendMessage(from, { text: 'Unknown command. Tap .menu' });
+                }
+                break;
+        }
     });
 }
+
 startBot();
