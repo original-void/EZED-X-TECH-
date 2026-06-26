@@ -1,13 +1,14 @@
 {
-  "name": "ezed-x-tech",
+  "name": "whatsapp-menu-bot",
   "version": "1.0.0",
+  "description": "WhatsApp bot with menu buttons",
   "main": "index.js",
-  "engines": { "node": "18.x" },
-  "scripts": { "start": "node index.js" },
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
-    "@whiskeysockets/baileys": "6.7.5",
-    "pino": "^9.0.0",
-    "adm-zip": "^0.5.16",
-    "express": "^4.18.2"
+    "@whiskeysockets/baileys": "^6.7.5",
+    "pino": "^8.19.0",
+    "qrcode-terminal": "^0.12.0"
   }
 }
