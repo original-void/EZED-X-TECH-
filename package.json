@@ -1,8 +1,10 @@
 {
-  "name": "whatsapp-menu-bot",
+  "name": "ezed-x-tech-bot",
   "version": "1.0.0",
-  "description": "WhatsApp bot with menu buttons",
+  "description": "EZED X TECH WhatsApp Bot with menu",
   "main": "index.js",
+  "author": "EZED X TECH",
+  "license": "MIT",
   "scripts": {
     "start": "node index.js"
   },
@@ -10,5 +12,8 @@
     "@whiskeysockets/baileys": "^6.7.5",
     "pino": "^8.19.0",
     "qrcode-terminal": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
