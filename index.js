@@ -17,7 +17,7 @@ const PORT = process.env.PORT || 3000;
 
 const BOT_NAME = 'EZED X TECH';
 const OWNER_NUMBER = '254769532338@s.whatsapp.net';
-const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png'; // YOUR LOGO ✅
+const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 
 let currentQR = null;
 let sock;
@@ -39,7 +39,7 @@ const MENU_TEXT =
 '* 6..sticker> Image to sticker\n' +
 '*\n' +
 '* *--- [ STATUS ] ---*\n' +
-'* Mode : Owner + Bot Only\n' +
+'* Mode : Owner Only\n' +
 '* Status : Online ✅\n' +
 '*\n' +
 '*================================*\n' +
@@ -79,7 +79,7 @@ async function startBot() {
         if (connection === 'open') {
             currentQR = null;
             console.log(BOT_NAME + ' Connected');
-            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' is online. Owner + Bot access: ON' });
+            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' is online. Owner Only: ON' });
         } else if (connection === 'close') {
             if (lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
         }
@@ -93,11 +93,9 @@ async function startBot() {
         const sender = jidNormalizedUser(msg.key.participant || from);
         const isFromMe = msg.key.fromMe;
 
+        // SILENT MODE FOR OTHERS ✅
         const isAllowed = (sender === OWNER_NUMBER) || isFromMe;
-        if (!isAllowed) {
-            await sock.sendMessage(from, { text: '❌ Access Denied. ' + BOT_NAME + ' is private.' });
-            return;
-        }
+        if (!isAllowed) return;
 
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         const command = text.toLowerCase().trim();
@@ -106,7 +104,6 @@ async function startBot() {
             case '.menu':
             case 'menu':
             case '.help':
-                // IMAGE MENU ✅
                 await sock.sendMessage(from, { 
                     image: { url: MENU_IMAGE_URL }, 
                     caption: MENU_TEXT 
