@@ -13,25 +13,19 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const BOT_NAME = 'EZED X TECH';
-const OWNER_NUMBER = '254769532338@s.whatsapp.net'; // <-- YOUR NUMBER
+const OWNER_NUMBER = '254769532338@s.whatsapp.net';
 
 let currentQR = null;
 let sock;
 
-const MENU_TEXT = `*🤖 ${BOT_NAME}*\n\nAvailable Commands:\n.menu - Show this menu\n.ping - Check bot\n.time - Kenya time\n.help - Show commands\nPowered by EZED X TECH`;
+const MENU_TEXT = `*🤖 ${BOT_NAME}*\n\nAvailable Commands:\n.menu - Show this menu\n.ping - Check bot speed\n.time - Kenya time\n.help - Show commands\nPowered by EZED X TECH`;
 
 app.get('/', (req, res) => res.send(`<h1>${BOT_NAME} is running</h1><p><a href="/qr">Open QR</a></p>`));
-
 app.get('/qr', async (req, res) => {
     if (!currentQR) return res.send('<h2>No QR yet. Wait 10s and refresh.</h2>');
-    try {
-        const qrImage = await QRCode.toDataURL(currentQR);
-        res.send(`<h1>Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:300px;" />`);
-    } catch (e) {
-        res.send('Error generating QR');
-    }
+    const qrImage = await QRCode.toDataURL(currentQR);
+    res.send(`<h1>Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:300px;" />`);
 });
-
 app.listen(PORT, () => console.log(`Web server on port ${PORT}`));
 
 async function startBot() {
@@ -53,10 +47,7 @@ async function startBot() {
             currentQR = qr;
             try {
                 const qrBuffer = await QRCode.toBuffer(qr);
-                await sock.sendMessage(OWNER_NUMBER, { 
-                    image: qrBuffer, 
-                    caption: `*${BOT_NAME} QR Code*`
-                });
+                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} QR Code*` });
             } catch (e) {}
         }
         if (connection === 'open') {
@@ -76,20 +67,13 @@ async function startBot() {
         const sender = jidNormalizedUser(msg.key.participant || from);
         const isFromMe = msg.key.fromMe;
 
-        // DEBUG
-        console.log('Sender JID:', sender, ' | Owner:', OWNER_NUMBER, ' | fromMe:', isFromMe);
-
-        // ACCESS CHECK: Allow OWNER or BOT ITSELF only
         const isAllowed = (sender === OWNER_NUMBER) || isFromMe;
-        
         if (!isAllowed) {
             await sock.sendMessage(from, { text: `❌ Access Denied. ${BOT_NAME} is private.` });
             return;
         }
 
-        const text = msg.message.conversation 
-                  || msg.message.extendedTextMessage?.text 
-                  || '';
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         const command = text.toLowerCase().trim();
 
         switch (command) {
@@ -99,7 +83,10 @@ async function startBot() {
                 await sock.sendMessage(from, { text: MENU_TEXT });
                 break;
             case '.ping':
-                await sock.sendMessage(from, { text: '🏓 Pong! EZED X TECH is online' });
+                const start = Date.now();
+                await sock.sendMessage(from, { text: '🏓 Pinging...' });
+                const speed = Date.now() - start;
+                await sock.sendMessage(from, { text: `🏓 Pong! \n⚡ Speed: ${speed}ms\n${BOT_NAME} is online` });
                 break;
             case '.time':
                 const now = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
