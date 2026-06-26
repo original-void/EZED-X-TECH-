@@ -18,22 +18,20 @@ const OWNER_NUMBER = '254769532338@s.whatsapp.net'; // <-- YOUR NUMBER
 let currentQR = null;
 let sock;
 
-const MENU = {
-    text: `*🤖 ${BOT_NAME}*\n\nWelcome! Tap a button below 👇`,
-    footer: 'Powered by EZED X TECH',
-    templateButtons: [
-        { index: 1, quickReplyButton: { displayText: '1. Ping 🏓', id: '.ping' } },
-        { index: 2, quickReplyButton: { displayText: '2. Time 🕒', id: '.time' } },
-        { index: 3, quickReplyButton: { displayText: '3. Help ❓', id: '.help' } },
-    ]
-};
+const MENU_TEXT = `*🤖 ${BOT_NAME}*\n\nAvailable Commands:\n.menu - Show this menu\n.ping - Check bot\n.time - Kenya time\n.help - Show commands\nPowered by EZED X TECH`;
 
 app.get('/', (req, res) => res.send(`<h1>${BOT_NAME} is running</h1><p><a href="/qr">Open QR</a></p>`));
+
 app.get('/qr', async (req, res) => {
     if (!currentQR) return res.send('<h2>No QR yet. Wait 10s and refresh.</h2>');
-    const qrImage = await QRCode.toDataURL(currentQR);
-    res.send(`<h1>Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:300px;" />`);
+    try {
+        const qrImage = await QRCode.toDataURL(currentQR);
+        res.send(`<h1>Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:300px;" />`);
+    } catch (e) {
+        res.send('Error generating QR');
+    }
 });
+
 app.listen(PORT, () => console.log(`Web server on port ${PORT}`));
 
 async function startBot() {
@@ -76,7 +74,10 @@ async function startBot() {
 
         const from = msg.key.remoteJid;
         const sender = jidNormalizedUser(msg.key.participant || from);
-        const isFromMe = msg.key.fromMe; // true = bot's own number
+        const isFromMe = msg.key.fromMe;
+
+        // DEBUG
+        console.log('Sender JID:', sender, ' | Owner:', OWNER_NUMBER, ' | fromMe:', isFromMe);
 
         // ACCESS CHECK: Allow OWNER or BOT ITSELF only
         const isAllowed = (sender === OWNER_NUMBER) || isFromMe;
@@ -88,14 +89,14 @@ async function startBot() {
 
         const text = msg.message.conversation 
                   || msg.message.extendedTextMessage?.text 
-                  || msg.message.buttonsResponseMessage?.selectedButtonId 
                   || '';
         const command = text.toLowerCase().trim();
 
         switch (command) {
             case '.menu':
             case 'menu':
-                await sock.sendMessage(from, MENU);
+            case '.help':
+                await sock.sendMessage(from, { text: MENU_TEXT });
                 break;
             case '.ping':
                 await sock.sendMessage(from, { text: '🏓 Pong! EZED X TECH is online' });
@@ -103,9 +104,6 @@ async function startBot() {
             case '.time':
                 const now = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
                 await sock.sendMessage(from, { text: `🕒 Kenya Time: ${now}` });
-                break;
-            case '.help':
-                await sock.sendMessage(from, { text: `Commands:\n.menu.ping.time.help\n${BOT_NAME}` });
                 break;
         }
     });
