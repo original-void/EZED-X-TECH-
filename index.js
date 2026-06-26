@@ -18,31 +18,42 @@ const OWNER_NUMBER = '254769532338@s.whatsapp.net';
 let currentQR = null;
 let sock;
 
+// SAFE ASCII MENU - No unicode box chars to crash Render
 const MENU_TEXT = `
-╭━━━〔 *🤖 ${BOT_NAME}* 〕━━━╮
-┃ 
-┃ *👑 Owner Panel* 
-┃ 
-┣━━━〔 *📜 COMMANDS* 〕━━━┫
-┃
-┃ 1️⃣ *\`.menu`*  → Show this panel
-┃ 2️⃣ *\`.ping`*  → Check bot speed ⚡
-┃ 3️⃣ *\`.time`*  → Kenya time 🕒 
-┃ 4️⃣ *\`.help`*  → Show commands
-┃
-┣━━━〔 *ℹ️ STATUS* 〕━━━┫
-┃  *Mode:* \`Owner + Bot Only\`
-┃  *Uptime:* \`Online\`
-┃
-╰━━━〔 *EZED X TECH* 〕━━━╯
+*================================*
+*      [ EZED X TECH BOT ]       *
+*================================*
+*
+*  *👑 OWNER PANEL* 
+*
+*  *--- [ COMMANDS ] ---*
+*
+* 1. .menu  > Show this panel
+* 2. .ping  > Check bot speed ⚡
+* 3. .time  > Kenya time 🕒 
+* 4. .help  > Show commands
+*
+*  *--- [ STATUS ] ---*
+*  Mode   : Owner + Bot Only
+*  Status : Online ✅
+*
+*================================*
+*     Powered by EZED NYANUGA TECH     *
+*================================*
 `;
 
 app.get('/', (req, res) => res.send(`<h1>${BOT_NAME} is running</h1><p><a href="/qr">Open QR</a></p>`));
+
 app.get('/qr', async (req, res) => {
     if (!currentQR) return res.send('<h2>No QR yet. Wait 10s and refresh.</h2>');
-    const qrImage = await QRCode.toDataURL(currentQR);
-    res.send(`<h1>Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:300px;" />`);
+    try {
+        const qrImage = await QRCode.toDataURL(currentQR);
+        res.send(`<h1>Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:300px;" />`);
+    } catch (e) {
+        res.send('Error generating QR');
+    }
 });
+
 app.listen(PORT, () => console.log(`Web server on port ${PORT}`));
 
 async function startBot() {
@@ -64,7 +75,10 @@ async function startBot() {
             currentQR = qr;
             try {
                 const qrBuffer = await QRCode.toBuffer(qr);
-                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} QR Code*` });
+                await sock.sendMessage(OWNER_NUMBER, { 
+                    image: qrBuffer, 
+                    caption: `*${BOT_NAME} QR Code*`
+                });
             } catch (e) {}
         }
         if (connection === 'open') {
@@ -83,6 +97,8 @@ async function startBot() {
         const from = msg.key.remoteJid;
         const sender = jidNormalizedUser(msg.key.participant || from);
         const isFromMe = msg.key.fromMe;
+
+        console.log('Sender JID:', sender, ' | Owner:', OWNER_NUMBER, ' | fromMe:', isFromMe);
 
         const isAllowed = (sender === OWNER_NUMBER) || isFromMe;
         if (!isAllowed) {
