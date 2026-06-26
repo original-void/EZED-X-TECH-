@@ -13,7 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const BOT_NAME = 'EZED X TECH';
-const OWNER_NUMBER = '254769532338@s.whatsapp.net'; // <-- MUST match the number you scanned with
+const OWNER_NUMBER = '254769532338@s.whatsapp.net'; // <-- YOUR NUMBER, no + no spaces
 
 let currentQR = null;
 let sock;
@@ -28,7 +28,7 @@ const MENU = {
     ]
 };
 
-app.get('/', (req, res) => res.send(`<h1>${BOT_NAME} is running</h1>`));
+app.get('/', (req, res) => res.send(`<h1>${BOT_NAME} is running</h1><p><a href="/qr">Open QR</a></p>`));
 app.get('/qr', async (req, res) => {
     if (!currentQR) return res.send('<h2>No QR yet. Wait 10s and refresh.</h2>');
     const qrImage = await QRCode.toDataURL(currentQR);
@@ -57,7 +57,7 @@ async function startBot() {
                 const qrBuffer = await QRCode.toBuffer(qr);
                 await sock.sendMessage(OWNER_NUMBER, { 
                     image: qrBuffer, 
-                    caption: `*${BOT_NAME} QR Code*\nScan this. Only this number will have access.`
+                    caption: `*${BOT_NAME} QR Code*\nScan this. Only ${OWNER_NUMBER} will have access.`
                 });
             } catch (e) {}
         }
@@ -75,7 +75,10 @@ async function startBot() {
         if (!msg.message || msg.key.fromMe) return;
 
         const from = msg.key.remoteJid;
-        const sender = jidNormalizedUser(msg.key.participant || from); // normalize 254...@s.whatsapp.net
+        const sender = jidNormalizedUser(msg.key.participant || from);
+
+        // DEBUG: Check this in Render Logs
+        console.log('Sender JID:', sender, ' | Owner:', OWNER_NUMBER);
 
         // OWNER CHECK
         if (sender!== OWNER_NUMBER) {
@@ -102,7 +105,7 @@ async function startBot() {
                 await sock.sendMessage(from, { text: `🕒 Kenya Time: ${now}` });
                 break;
             case '.help':
-                await sock.sendMessage(from, { text: `Owner Commands:\n.menu.ping.time.help\n${BOT_NAME}` });
+                await sock.sendMessage(from, { text: `Owner Commands:\n.menu .ping .time .help\n${BOT_NAME}` });
                 break;
         }
     });
