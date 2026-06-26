@@ -4,8 +4,7 @@ const {
     DisconnectReason, 
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
-    jidNormalizedUser,
-    proto
+    jidNormalizedUser
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
@@ -96,12 +95,13 @@ async function startBot() {
         }
     });
 
-    // AUTO VIEW + LIKE STATUS LISTENER V2 ✅ FIXED
+    // AUTO VIEW + LIKE STATUS LISTENER V3 ✅ FIXED REACT
     sock.ev.on('messages.upsert', async (m) => {
         const messages = m.messages;
         for (const msg of messages) {
             if (!msg.key || msg.key.remoteJid!== 'status@broadcast') continue;
             if (msg.key.fromMe) continue; // Don't like your own status
+            if (!msg.key.participant) continue; // Skip if no participant
 
             try {
                 if (autoViewStatus) {
@@ -109,12 +109,12 @@ async function startBot() {
                     console.log('Viewed status from:', msg.key.participant);
                 }
                 if (autoLikeStatus) {
-                    await sock.sendMessage('status@broadcast', { 
+                    await sock.sendMessage(msg.key.participant, { 
                         react: { 
                             text: '❤️', 
                             key: msg.key 
                         } 
-                    }); // Like the status
+                    }); // Like the status -> send to participant JID
                     console.log('Liked status from:', msg.key.participant);
                 }
             } catch (e) {
