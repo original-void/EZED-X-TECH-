@@ -4,7 +4,10 @@ const {
     DisconnectReason, 
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
-    jidNormalizedUser
+    jidNormalizedUser,
+    downloadMediaMessage,
+    Sticker, 
+    StickerTypes
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
@@ -14,6 +17,7 @@ const PORT = process.env.PORT || 3000;
 
 const BOT_NAME = 'EZED X TECH';
 const OWNER_NUMBER = '254769532338@s.whatsapp.net';
+const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png'; // YOUR LOGO ✅
 
 let currentQR = null;
 let sock;
@@ -30,7 +34,9 @@ const MENU_TEXT =
 '* 1..menu > Show this panel\n' +
 '* 2..ping > Check bot speed ⚡\n' +
 '* 3..time > Kenya time 🕒 \n' +
-'* 4..help > Show commands\n' +
+'* 4..jid > Get chat ID\n' +
+'* 5..owner > Show owner\n' +
+'* 6..sticker> Image to sticker\n' +
 '*\n' +
 '* *--- [ STATUS ] ---*\n' +
 '* Mode : Owner + Bot Only\n' +
@@ -100,18 +106,42 @@ async function startBot() {
             case '.menu':
             case 'menu':
             case '.help':
-                await sock.sendMessage(from, { text: MENU_TEXT });
+                // IMAGE MENU ✅
+                await sock.sendMessage(from, { 
+                    image: { url: MENU_IMAGE_URL }, 
+                    caption: MENU_TEXT 
+                });
                 break;
             case '.ping':
                 const start = Date.now();
                 await sock.sendMessage(from, { text: '🏓 Pinging...' });
                 const speed = Date.now() - start;
-                // 100% SAFE - NO BACKTICKS
                 await sock.sendMessage(from, { text: '🏓 *Pong!* \n⚡ *Speed:* `' + speed + 'ms`\n*' + BOT_NAME + '* is online' });
                 break;
             case '.time':
                 const now = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
                 await sock.sendMessage(from, { text: '🕒 *Kenya Time:* `' + now + '`' });
+                break;
+            case '.jid':
+                await sock.sendMessage(from, { text: '🆔 *Chat JID:* `' + from + '`' });
+                break;
+            case '.owner':
+                await sock.sendMessage(from, { text: '👑 *Owner:* `254769532338`' });
+                break;
+            case '.sticker':
+                if (msg.message.imageMessage || msg.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage) {
+                    const quoted = msg.message.extendedTextMessage?.contextInfo?.quotedMessage || msg.message;
+                    const buffer = await downloadMediaMessage({ message: quoted }, 'buffer', {});
+                    const sticker = new Sticker(buffer, {
+                        pack: BOT_NAME,
+                        author: 'EZED X TECH',
+                        type: StickerTypes.FULL,
+                        categories: ['🤖'],
+                    });
+                    await sock.sendMessage(from, await sticker.toMessage());
+                } else {
+                    await sock.sendMessage(from, { text: '❌ Reply to an image with.sticker' });
+                }
                 break;
         }
     });
