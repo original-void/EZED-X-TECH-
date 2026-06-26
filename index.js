@@ -4,7 +4,8 @@ const {
     DisconnectReason, 
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
-    jidNormalizedUser
+    jidNormalizedUser,
+    proto
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
@@ -21,8 +22,12 @@ let autoRecording = true;
 let autoTyping = true;
 let autoViewStatus = true;
 let autoLikeStatus = true; // Auto DM Status with emoji
-let autoReadMessages = false; // NEW: Auto read DMs
-let autoReactDM = false; // NEW: Auto react to DMs
+let autoReadMessages = false; // Auto read DMs both sides
+let autoReactDM = false; // Auto react to DMs
+let antiDelete = false; // NEW: Anti delete
+
+// CACHE FOR ANTI-DELETE
+const msgStore = new Map();
 
 // RANDOM EMOJI LIST 🔥
 const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶'];
@@ -32,7 +37,7 @@ let sock;
 
 const MENU_TEXT =
 '*================================*\n' +
-'* [ EZED X TECH BOT ] *\n' +
+'* [ EZED X TECH BOT V5 ] *\n' +
 '*================================*\n' +
 '*\n' +
 '* *👑 OWNER PANEL* \n' +
@@ -50,8 +55,9 @@ const MENU_TEXT =
 '* 7..atype on/off> Auto Typing\n' +
 '* 8..aview on/off> Auto View Status\n' +
 '* 9..alike on/off> Auto DM Status\n' +
-'* 10..aread on/off> Auto Read DMs\n' +
+'* 10..aread on/off> Auto Read All DMs\n' +
 '* 11..areact on/off> Auto React DMs\n' +
+'* 12..antidelete on/off> Anti Delete\n' +
 '*\n' +
 '* *--- [ STATUS ] ---*\n' +
 '* Mode : Owner Only\n' +
@@ -96,7 +102,7 @@ async function startBot() {
         if (connection === 'open') {
             currentQR = null;
             console.log(BOT_NAME + ' Connected');
-            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' is online. Auto Features: ON' });
+            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' V5 is online. Ghost Mode: ON' });
         } else if (connection === 'close') {
             if (lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
         }
@@ -112,7 +118,7 @@ async function startBot() {
 
             try {
                 if (autoViewStatus) {
-                    await sock.readMessages([msg.key]); // View the status
+                    await sock.readMessages([msg.key]);
                     console.log('Viewed status from:', msg.key.participant);
                 }
                 if (autoLikeStatus) {
@@ -128,7 +134,7 @@ async function startBot() {
         }
     });
 
-    // MAIN COMMAND + AUTO DM REACT/READ HANDLER ✅
+    // MAIN HANDLER: READ, REACT, CACHE, ANTIDELETE ✅
     sock.ev.on('messages.upsert', async (m) => {
         const msg = m.messages[0];
         if (!msg.message || msg.key.remoteJid === 'status@broadcast') return;
@@ -139,13 +145,19 @@ async function startBot() {
         const isGroup = from.endsWith('@g.us');
         const isOwner = (sender === OWNER_NUMBER) || isFromMe;
 
-        // AUTO READ MESSAGES ✅
-        if (autoReadMessages &&!isFromMe) {
-            await sock.readMessages([msg.key]);
-            console.log('Auto read:', from);
+        // CACHE MESSAGE FOR ANTI-DELETE ✅
+        if (antiDelete &&!isGroup) {
+            msgStore.set(msg.key.id, { msg, from });
+            if (msgStore.size > 100) msgStore.delete(msgStore.keys().next().value); // Keep last 100
         }
 
-        // AUTO REACT TO DM ✅
+        // AUTO READ BOTH SIDES ✅ You + Them
+        if (autoReadMessages) {
+            await sock.readMessages([msg.key]);
+            console.log('Auto read:', from, isFromMe? '[You]' : '[Them]');
+        }
+
+        // AUTO REACT TO DM FROM OTHERS ✅
         if (autoReactDM &&!isFromMe &&!isGroup) {
             try {
                 const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
@@ -203,13 +215,35 @@ async function startBot() {
             case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 Auto View Status: `OFF`' }); break;
             case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `ON`' }); break;
             case '.alike off': autoLikeStatus = false; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `OFF`' }); break;
-            case '.aread on': autoReadMessages = true; await sock.sendMessage(from, { text: '📖 Auto Read DMs: `ON`' }); break;
-            case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 Auto Read DMs: `OFF`' }); break;
+            case '.aread on': autoReadMessages = true; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `ON`' }); break;
+            case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `OFF`' }); break;
             case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 Auto React DMs: `ON`' }); break;
             case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 Auto React DMs: `OFF`' }); break;
+            case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `ON`' }); break;
+            case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `OFF`' }); break;
         }
         // Stop presence after 3s
         setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
+    });
+
+    // ANTIDELETE LISTENER ✅
+    sock.ev.on('messages.update', async (updates) => {
+        for (const { key, update } of updates) {
+            if (update.message === null && antiDelete) { // Message deleted
+                const stored = msgStore.get(key.id);
+                if (stored &&!key.remoteJid.endsWith('@g.us')) {
+                    const deletedMsg = stored.msg.message;
+                    const sender = key.participant || key.remoteJid;
+                    const name = await sock.getName(sender) || sender.split('@')[0];
+                    
+                    await sock.sendMessage(OWNER_NUMBER, { 
+                        text: `🗑️ *ANTIDELETE ALERT*\n\n*From:* ${name}\n*Chat:* ${stored.from}\n\n*Deleted Message:*`, 
+                        quoted: stored.msg 
+                    });
+                    console.log('AntiDelete triggered:', name);
+                }
+            }
+        }
     });
 }
 
