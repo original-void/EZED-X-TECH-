@@ -89,9 +89,7 @@ async function startBot() {
         const sender = jidNormalizedUser(msg.key.participant || from);
         const isFromMe = msg.key.fromMe;
 
-        // SILENT MODE FOR OTHERS ✅
-        const isAllowed = (sender === OWNER_NUMBER) || isFromMe;
-        if (!isAllowed) return;
+        if ((sender === OWNER_NUMBER) || isFromMe) {} else return;
 
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         const command = text.toLowerCase().trim();
