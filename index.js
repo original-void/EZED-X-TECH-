@@ -20,24 +20,24 @@ let sock;
 
 const MENU_TEXT = `
 *================================*
-*      [ EZED X TECH BOT ]       *
+* [ EZED X TECH BOT ] *
 *================================*
 *
-*  *👑 OWNER PANEL* 
+* *👑 OWNER PANEL* 
 *
-*  *--- [ COMMANDS ] ---*
+* *--- [ COMMANDS ] ---*
 *
-* 1. .menu  > Show this panel
-* 2. .ping  > Check bot speed ⚡
-* 3. .time  > Kenya time 🕒 
-* 4. .help  > Show commands
+* 1..menu > Show this panel
+* 2..ping > Check bot speed ⚡
+* 3..time > Kenya time 🕒 
+* 4..help > Show commands
 *
-*  *--- [ STATUS ] ---*
-*  Mode   : Owner + Bot Only
-*  Status : Online ✅
+* *--- [ STATUS ] ---*
+* Mode : Owner + Bot Only
+* Status : Online ✅
 *
 *================================*
-*     Powered by EZED X TECH     *
+* Powered by EZED X TECH *
 *================================*
 `;
 
@@ -107,7 +107,6 @@ async function startBot() {
                 const start = Date.now();
                 await sock.sendMessage(from, { text: '🏓 Pinging...' });
                 const speed = Date.now() - start;
-                // FIXED LINE - no backslashes
                 await sock.sendMessage(from, { text: `🏓 *Pong!* \n⚡ *Speed:* \`${speed}ms`\n*${BOT_NAME}* is online` });
                 break;
             case '.time':
