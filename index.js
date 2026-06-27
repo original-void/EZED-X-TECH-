@@ -5,7 +5,8 @@ const {
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
     jidNormalizedUser,
-    downloadMediaMessage
+    downloadMediaMessage,
+    getContentType
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
@@ -14,18 +15,28 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const BOT_NAME = 'EZED X TECH';
-const OWNER_NUMBER = '254769532338@s.whatsapp.net'; // Your DM
+const OWNER_NUMBER = '254769532338@s.whatsapp.net';
 const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
 
-let antiDelete = true; // ON by default
-const msgStore = new Map(); // Cache everything
+let antiDelete = true;
+const MAX_CACHE = 200; // Reduced to prevent RAM crash
+const msgStore = new Map(); 
 let currentQR = null;
 let sock;
 
+// Auto cleanup cache every 5 mins to prevent memory leak
+setInterval(() => {
+    if (msgStore.size > MAX_CACHE) {
+        const keysToDelete = Array.from(msgStore.keys()).slice(0, msgStore.size - MAX_CACHE);
+        keysToDelete.forEach(k => msgStore.delete(k));
+        console.log('[CACHE CLEANED] Removed', keysToDelete.length);
+    }
+}, 5 * 60 * 1000);
+
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V6.0</h1><h2>Waiting for QR... Refresh</h2>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V6.1</h1><h2>Waiting for QR... Refresh</h2>`);
     const qrImage = await QRCode.toDataURL(currentQR);
-    res.send(`<h1>🤖 Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:320px;" /><p>https://ezed-x-tech-2.onrender.com</p>`);
+    res.send(`<h1>🤖 Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:320px;" />`);
 });
 app.listen(PORT, () => console.log('Server:', RENDER_URL));
 
@@ -39,7 +50,7 @@ async function startBot() {
         version,
         browser: [BOT_NAME, 'Chrome', '1.0.0'],
         markOnlineOnConnect: true,
-        syncFullHistory: true // CRITICAL FOR DELETE
+        syncFullHistory: true
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -48,75 +59,71 @@ async function startBot() {
         const { connection, qr } = update;
         if (qr) {
             currentQR = qr;
-            const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V6.0*\nScan at: ${RENDER_URL}` }).catch(()=>{});
+            try {
+                const qrBuffer = await QRCode.toBuffer(qr);
+                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V6.1*\nScan at: ${RENDER_URL}` });
+            } catch(e){}
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V6.0 Online\n🛡️ AntiDelete: ON\nDMs deleted messages will be exposed here.` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V6.1 Stable\n🛡️ AntiDelete: ON\nCache: ${MAX_CACHE} msgs` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
     });
 
-    // 1. CACHE ALL INCOMING DMS BOTH SIDES ✅
+    // 1. CACHE DMS SAFELY ✅
     sock.ev.on('messages.upsert', async ({ messages }) => {
-        for (const msg of messages) {
-            if (!msg.message || msg.key.remoteJid === 'status@broadcast') continue;
-            const from = msg.key.remoteJid;
-            if (from.endsWith('@g.us')) continue; // Only DMs
+        try {
+            for (const msg of messages) {
+                if (!msg.message || msg.key.remoteJid === 'status@broadcast') continue;
+                const from = msg.key.remoteJid;
+                if (from.endsWith('@g.us')) continue;
 
-            // Save message + sender + time
-            msgStore.set(msg.key.id, { 
-                msg, 
-                from, 
-                sender: jidNormalizedUser(msg.key.participant || from),
-                timestamp: msg.messageTimestamp
-            });
-            if (msgStore.size > 1000) msgStore.delete(msgStore.keys().next().value); // Keep 1000 msgs
-            console.log('[CACHED]', msg.key.id, msg.key.fromMe? '[You]' : '[Them]');
-        }
+                msgStore.set(msg.key.id, { 
+                    msg, 
+                    from, 
+                    sender: jidNormalizedUser(msg.key.participant || from),
+                    timestamp: msg.messageTimestamp
+                });
+                if (msgStore.size % 50 === 0) console.log('[CACHE]', msgStore.size);
+            }
+        } catch(e) { console.log('Cache error:', e.message); }
     });
 
-    // 2. ANTI-DELETE EXPOSER ✅ THIS IS THE MAIN ONE
+    // 2. ANTI-DELETE EXPOSER V6.1 STABLE ✅
     sock.ev.on('messages.update', async (updates) => {
-        for (const { key, update } of updates) {
-            // update.message === null = WhatsApp delete signal
-            if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
-                const stored = msgStore.get(key.id);
-                if (stored) {
-                    const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
-                    const time = new Date(stored.timestamp * 1000).toLocaleTimeString('en-KE');
-                    const type = Object.keys(stored.msg.message)[0];
+        try {
+            for (const { key, update } of updates) {
+                if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
+                    const stored = msgStore.get(key.id);
+                    if (stored) {
+                        const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
+                        const time = new Date(stored.timestamp * 1000).toLocaleTimeString('en-KE');
+                        const type = getContentType(stored.msg.message);
 
-                    // EXPOSE IN YOUR DM
-                    await sock.sendMessage(OWNER_NUMBER, { 
-                        text: `🗑️ *DELETED MESSAGE EXPOSED*\n\n*From:* ${name} \`${stored.sender}\`\n*Type:* ${type}\n*Time:* ${time}\n*Status:* ${stored.msg.key.fromMe? 'You deleted' : 'They deleted'}\n\n*Content below:*` 
-                    });
-                    
-                    // Resend the actual deleted message
-                    await sock.sendMessage(OWNER_NUMBER, stored.msg.message);
-                    console.log('[EXPOSED]', name, key.id, type);
-                } else {
-                    console.log('[MISS] Deleted but not cached:', key.id);
+                        await sock.sendMessage(OWNER_NUMBER, { 
+                            text: `🗑️ *DELETED MESSAGE EXPOSED*\n\n*From:* ${name}\n*Type:* ${type}\n*Time:* ${time}\n*Status:* ${stored.msg.key.fromMe? 'You deleted' : 'They deleted'}` 
+                        }).catch(()=>{});
+                        
+                        // Re-download media before resend to avoid expired URL crash
+                        if (type === 'imageMessage' || type === 'videoMessage' || type === 'audioMessage' || type === 'documentMessage' || type === 'stickerMessage') {
+                            const buffer = await downloadMediaMessage(stored.msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
+                            const sendObj = {};
+                            sendObj[type.replace('Message','')] = buffer;
+                            sendObj.mimetype = stored.msg.message[type].mimetype;
+                            if(type === 'imageMessage') sendObj.caption = stored.msg.message[type].caption || '';
+                            await sock.sendMessage(OWNER_NUMBER, sendObj).catch(()=>{});
+                        } else {
+                            await sock.sendMessage(OWNER_NUMBER, stored.msg.message).catch(()=>{});
+                        }
+                        
+                        console.log('[EXPOSED]', name, key.id);
+                        msgStore.delete(key.id); // Free RAM after exposing
+                    }
                 }
             }
-        }
-    });
-
-    // 3. BACKUP LISTENER FOR NEW WHATSAPP ✅
-    sock.ev.on('messages.delete', async ({ keys }) => {
-        if (!antiDelete) return;
-        for (const key of keys) {
-            if (key.remoteJid?.endsWith('@g.us')) continue;
-            const stored = msgStore.get(key.id);
-            if (stored) {
-                const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
-                await sock.sendMessage(OWNER_NUMBER, { text: `🗑️ *DELETED MESSAGE EXPOSED [BACKUP]*\n*From:* ${name}` });
-                await sock.sendMessage(OWNER_NUMBER, stored.msg.message);
-                console.log('[EXPOSED BACKUP]', name, key.id);
-            }
-        }
+        } catch(e) { console.log('AntiDelete error:', e.message); } // Prevent crash
     });
 
     // COMMANDS
@@ -128,7 +135,7 @@ async function startBot() {
 
         if (cmd === '.antidelete on') { antiDelete = true; await sock.sendMessage(OWNER_NUMBER, { text: '🛡️ AntiDelete: ON' }); }
         if (cmd === '.antidelete off') { antiDelete = false; await sock.sendMessage(OWNER_NUMBER, { text: '🛡️ AntiDelete: OFF' }); }
-        if (cmd === '.menu') await sock.sendMessage(OWNER_NUMBER, { text: '*V6.0*\n.antidelete on/off\nBot exposes ALL deleted DMs here.' });
+        if (cmd === '.cache') await sock.sendMessage(OWNER_NUMBER, { text: `🗂️ Cache size: ${msgStore.size}/${MAX_CACHE}` });
     });
 }
 
