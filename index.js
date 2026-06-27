@@ -35,24 +35,80 @@ const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', 
 let currentQR = null;
 let sock;
 
-setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
+// KEEP RENDER AWAKE 3MIN
+setInterval(() => { axios.get(RENDER_URL).catch(()=>console.log('[PING]')); }, 3 * 60 * 1000);
 
 const MENU_TEXT = `
 *╭━━━━━━━━━━━━━━╮*
-*┃ 👑 ${BOT_NAME} V7.3 👑 ┃*
+*┃ 👑 ${BOT_NAME} V7.4 👑 ┃*
 *╰━━━━━━━━━━━━━━╯*
-*┃ Mode:* \`INSTANT GRAB\`
-*┃ 🗂️ AD:* \`${msgStore.size}\` | 👻 VV: \`${vvStore.size}\`
-*┃.menu.ping.time.jid.owner.cache.logs
-*┃.arec.atype.aview.alike.aread.areact.antidelete
+
+*╭───〔 𝗜𝗡𝗙𝗢 〕───╮*
+*┃ 📛 Bot:* ${BOT_NAME}
+*┃ ⚡ Status:* \`Online ✅\`
+*┃ 🛡️ AntiDelete:* \`${antiDelete? 'ON' : 'OFF'}\`
+*┃ 🗂️ AD Cache:* \`${msgStore.size}\`
+*┃ 👻 VV Flagged:* \`${vvStore.size}\` *No Limit*
+*┃ Mode:* \`Unwrap Ephemeral+VV\`
+*╰━━━━━━━━━━━━╯*
+
+*╭───〔 𝗚𝗘𝗡𝗘𝗥𝗔𝗟 〕───╮*
+*┃ 1.* \`.menu\` > Show this panel
+*┃ 2.* \`.ping\` > Check bot speed ⚡
+*┃ 3.* \`.time\` > Kenya time 🕒 
+*┃ 4.* \`.jid\` > Get chat ID 🆔
+*┃ 5.* \`.owner\` > Show owner 👑
+*┃ 6.* \`.cache\` > Check cache size 🗂️
+*┃ 7.* \`.logs\` > Last 10 VV IDs 🧪
+*╰━━━━━━━━━━━━╯*
+
+*╭───〔 𝗔𝗨𝗧𝗢 𝗙𝗘𝗔𝗧𝗨𝗥𝗘𝗦 〕───╮*
+*┃ 8.* \`.arec on/off\` > Auto Recording 🎤
+*┃ 9.* \`.atype on/off\` > Auto Typing ⌨️
+*┃ 10.* \`.aview on/off\` > Auto View Status 👀
+*┃ 11.* \`.alike on/off\` > Auto DM Status ❤️
+*┃ 12.* \`.aread on/off\` > Auto Read All DMs 📖
+*┃ 13.* \`.areact on/off\` > Auto React DMs 😈
+*┃ 14.* \`.antidelete on/off\` > Anti Delete 🗑️
+*╰━━━━━━━━━━━━━━━╯*
+
+*${BOT_NAME} | Send View Once to bot = Auto extract*
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V7.3 Online</h1>`);
+    if (!currentQR) return res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 ${BOT_NAME} V7.4</h1><h2>Keep-Alive Active</h2></div>`);
     const qrImage = await QRCode.toDataURL(currentQR);
-    res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
+    res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:320px;border:5px solid #25D366;border-radius:20px;" /><p>${RENDER_URL}</p></div>`);
 });
 app.listen(PORT, () => console.log('Server:', RENDER_URL));
+
+// V7.4: UNWRAPPER FUNCTION - 3 LAYERS DEEP
+function unwrapViewOnce(msg) {
+    let m = msg.message;
+    let depth = 0;
+    let isVV = false;
+    let realType = null;
+
+    while (m && depth < 3) {
+        const type = getContentType(m);
+        console.log(`[UNWRAP L${depth}]`, type);
+
+        if (type === 'imageMessage' || type === 'videoMessage') {
+            if (m[type]?.viewOnce === true) {
+                isVV = true;
+                realType = type;
+                return { isVV, realType, realMsg: m };
+            }
+        }
+        if (type === 'ephemeralMessage' || type.includes('viewOnceMessage')) {
+            m = m[type]?.message; // Go deeper
+            depth++;
+            continue;
+        }
+        break;
+    }
+    return { isVV: false };
+}
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
@@ -65,7 +121,7 @@ async function startBot() {
         browser: [BOT_NAME, 'Chrome', '1.0.0'],
         markOnlineOnConnect: true,
         syncFullHistory: false,
-        getMessage: async key => { // CRITICAL: Needed for downloadMediaMessage on old msgs
+        getMessage: async key => {
             const msg = msgStore.get(key.id)?.msg;
             return msg?.message || { conversation: '' };
         }
@@ -77,17 +133,20 @@ async function startBot() {
         const { connection, qr } = update;
         if (qr) {
             currentQR = qr;
-            const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V7.3 QR*` }).catch(()=>{});
+            try {
+                const qrBuffer = await QRCode.toBuffer(qr);
+                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V7.4 QR*\nScan at: ${RENDER_URL}` });
+            } catch(e){}
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V7.3 Online\nMode: Instant ViewOnce Grab` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V7.4 Online\nMode: Unwrap Ephemeral+VV` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
     });
 
+    // STATUS HANDLER
     sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
             if (msg.key.remoteJid === 'status@broadcast' && msg.key.participant &&!msg.key.fromMe) {
@@ -102,6 +161,7 @@ async function startBot() {
         }
     });
 
+    // MAIN HANDLER V7.4
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             for (const msg of messages) {
@@ -112,37 +172,39 @@ async function startBot() {
                 const isOwner = from === OWNER_NUMBER || isFromMe;
 
                 const mtype = getContentType(msg.message);
-                console.log('[NEW MSG V7.3]', msg.key.id, mtype, 'VV:', msg.message[mtype]?.viewOnce);
+                console.log('[NEW MSG V7.4]', msg.key.id, mtype);
 
-                // 1. CACHE FIRST - BEFORE ANY DOWNLOAD
+                // 1. ANTI-DELETE CACHE
                 if (antiDelete &&!isGroup &&!isFromMe) {
-                    msgStore.set(msg.key.id, { msg, from, sender: jidNormalizedUser(msg.key.participant || from), timestamp: msg.messageTimestamp });
+                    msgStore.set(msg.key.id, { 
+                        msg, from, 
+                        sender: jidNormalizedUser(msg.key.participant || from),
+                        timestamp: msg.messageTimestamp
+                    });
                 }
 
-                // 2. V7.3: INSTANT GRAB FOR imageMessage/videoMessage with viewOnce:true
-                if (!isGroup &&!isFromMe && (mtype === 'imageMessage' || mtype === 'videoMessage')) {
-                    const isVV = msg.message[mtype]?.viewOnce === true;
-                    if (!isVV) continue; // Only grab View Once, ignore normal media
-
-                    const fromName = await sock.getName(from) || from.split('@')[0];
-                    await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE CAPTURED V7.3*\nFrom: ${fromName}\nType: ${mtype}\nID: \`${msg.key.id}\`\nDownloading NOW...` });
-                    
-                    try {
-                        // DOWNLOAD INSTANTLY. THIS IS THE FIX.
-                        const buffer = await downloadMediaMessage(msg, 'buffer', {}, { 
-                            reuploadRequest: sock.updateMediaMessage 
-                        });
-                        const sendObj = {};
-                        sendObj[mtype.replace('Message','')] = buffer;
-                        sendObj.mimetype = msg.message[mtype].mimetype;
-                        if(mtype === 'imageMessage') sendObj.caption = msg.message[mtype].caption || '👻 Extracted View Once';
+                // 2. V7.4: UNWRAP THEN GRAB VIEW ONCE
+                if (!isGroup &&!isFromMe) {
+                    const { isVV, realType, realMsg } = unwrapViewOnce(msg);
+                    if (isVV) {
+                        const fromName = await sock.getName(from) || from.split('@')[0];
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE CAPTURED V7.4*\nFrom: ${fromName}\nType: ${realType}\nID: \`${msg.key.id}\`\nDownloading...` });
                         
-                        await sock.sendMessage(OWNER_NUMBER, sendObj);
-                        vvStore.set(msg.key.id, msg.key.id);
-                        console.log('[VV SAVED V7.3]', msg.key.id);
-                    } catch (err) {
-                        console.log('[VV FAIL V7.3]', err.message);
-                        await sock.sendMessage(OWNER_NUMBER, { text: `❌ Failed to download View Once: ${err.message}\nID: ${msg.key.id}` });
+                        try {
+                            const fakeMsg = { key: msg.key, message: realMsg };
+                            const buffer = await downloadMediaMessage(fakeMsg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
+                            const sendObj = {};
+                            sendObj[realType.replace('Message','')] = buffer;
+                            sendObj.mimetype = realMsg[realType].mimetype;
+                            if(realType === 'imageMessage') sendObj.caption = realMsg[realType].caption || '👻 Extracted View Once V7.4';
+                            
+                            await sock.sendMessage(OWNER_NUMBER, sendObj);
+                            vvStore.set(msg.key.id, msg.key.id);
+                            console.log('[VV SAVED V7.4]', msg.key.id);
+                        } catch (err) {
+                            console.log('[VV FAIL V7.4]', err.message);
+                            await sock.sendMessage(OWNER_NUMBER, { text: `❌ Failed V7.4: ${err.message}\nID: ${msg.key.id}` });
+                        }
                     }
                 }
 
@@ -160,56 +222,84 @@ async function startBot() {
                 const command = text.toLowerCase().trim();
 
                 switch (command) {
-                    case '.menu': await sock.sendMessage(from, { image: { url: MENU_IMAGE_URL }, caption: MENU_TEXT }); break;
-                    case '.ping': const start = Date.now(); await sock.sendMessage(from, { text: '🏓 Pinging...' }); await sock.sendMessage(from, { text: `🏓 *Pong!* \n⚡ *Speed:* \`${Date.now() - start}ms\`` }); break;
-                    case '.time': await sock.sendMessage(from, { text: `🕒 *Kenya Time:* \`${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}\`` }); break;
-                    case '.jid': await sock.sendMessage(from, { text: `🆔 *Chat JID:* \`${from}\`` }); break;
-                    case '.owner': await sock.sendMessage(from, { text: '👑 *Owner:* `254769532338`' }); break;
-                    case '.cache': await sock.sendMessage(from, { text: `🗂️ *Cache*\nAD: \`${msgStore.size}\`\nVV: \`${vvStore.size}\`\nUptime: \`${Math.floor(process.uptime()/60)}m\`` }); break;
-                    case '.logs': await sock.sendMessage(from, { text: `🧪 *Last 10 VV IDs:*\n\`\`${Array.from(vvStore.keys()).slice(-10).join('\n') || 'None'}\`\`` }); break;
+                    case '.menu': case 'menu': case '.help':
+                        await sock.sendMessage(from, { image: { url: MENU_IMAGE_URL }, caption: MENU_TEXT });
+                        break;
+                    case '.ping':
+                        const start = Date.now();
+                        await sock.sendMessage(from, { text: '🏓 Pinging...' });
+                        const speed = Date.now() - start;
+                        await sock.sendMessage(from, { text: `🏓 *Pong!* \n⚡ *Speed:* \`${speed}ms\`` });
+                        break;
+                    case '.time':
+                        const now = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
+                        await sock.sendMessage(from, { text: `🕒 *Kenya Time:* \`${now}\`` });
+                        break;
+                    case '.jid':
+                        await sock.sendMessage(from, { text: `🆔 *Chat JID:* \`${from}\`` });
+                        break;
+                    case '.owner':
+                        await sock.sendMessage(from, { text: '👑 *Owner:* `254769532338`' });
+                        break;
+                    case '.cache':
+                        await sock.sendMessage(from, { text: `🗂️ *Cache Status*\nAntiDelete: \`${msgStore.size}\`\nVV Flagged: \`${vvStore.size}\` *No Limit*\nBot Uptime: \`${Math.floor(process.uptime()/60)}m ${Math.floor(process.uptime()%60)}s\`` });
+                        break;
+                    case '.logs':
+                        const ids = Array.from(vvStore.keys()).slice(-10);
+                        await sock.sendMessage(from, { text: `🧪 *Last 10 VV IDs:*\n\`\`${ids.join('\n') || 'None'}\`\`` });
+                        break;
 
-                    case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 ON' }); break;
-                    case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 OFF' }); break;
-                    case '.atype on': autoTyping = true; await sock.sendMessage(from, { text: '⌨️ ON' }); break;
-                    case '.atype off': autoTyping = false; await sock.sendMessage(from, { text: '⌨️ OFF' }); break;
-                    case '.aview on': autoViewStatus = true; await sock.sendMessage(from, { text: '👀 ON' }); break;
-                    case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 OFF' }); break;
-                    case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ ON' }); break;
-                    case '.alike off': autoLikeStatus = false; await sock.sendMessage(from, { text: '❤️ OFF' }); break;
-                    case '.aread on': autoReadMessages = true; await sock.sendMessage(from, { text: '📖 ON' }); break;
-                    case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 OFF' }); break;
-                    case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 ON' }); break;
-                    case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 OFF' }); break;
-                    case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ ON' }); break;
-                    case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ OFF' }); break;
+                    // AUTO TOGGLES
+                    case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 Auto Recording: `ON`' }); break;
+                    case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 Auto Recording: `OFF`' }); break;
+                    case '.atype on': autoTyping = true; await sock.sendMessage(from, { text: '⌨️ Auto Typing: `ON`' }); break;
+                    case '.atype off': autoTyping = false; await sock.sendMessage(from, { text: '⌨️ Auto Typing: `OFF`' }); break;
+                    case '.aview on': autoViewStatus = true; await sock.sendMessage(from, { text: '👀 Auto View Status: `ON`' }); break;
+                    case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 Auto View Status: `OFF`' }); break;
+                    case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `ON`' }); break;
+                    case '.alike off': autoLikeStatus = false; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `OFF`' }); break;
+                    case '.aread on': autoReadMessages = true; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `ON`' }); break;
+                    case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `OFF`' }); break;
+                    case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 Auto React DMs: `ON`' }); break;
+                    case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 Auto React DMs: `OFF`' }); break;
+                    case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `ON`' }); break;
+                    case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `OFF`' }); break;
                 }
                 setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
             }
-        } catch(e) { console.log('Main error:', e); }
+        } catch(e) { console.log('Main error:', e.message); }
     });
 
+    // ANTI-DELETE EXPOSER
     sock.ev.on('messages.update', async (updates) => {
-        for (const { key, update } of updates) {
-            if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
-                const stored = msgStore.get(key.id);
-                if (stored) {
-                    const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
-                    await sock.sendMessage(OWNER_NUMBER, { text: `🗑️ *DELETED: ${name}*\n*Type:* ${getContentType(stored.msg.message)}` }).catch(()=>{});
-                    const type = getContentType(stored.msg.message);
-                    if (type === 'imageMessage' || type === 'videoMessage' || type === 'audioMessage' || type === 'documentMessage' || type === 'stickerMessage') {
-                        const buffer = await downloadMediaMessage(stored.msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
-                        const sendObj = {};
-                        sendObj[type.replace('Message','')] = buffer;
-                        sendObj.mimetype = stored.msg.message[type].mimetype;
-                        if(type === 'imageMessage') sendObj.caption = stored.msg.message[type].caption || '';
-                        await sock.sendMessage(OWNER_NUMBER, sendObj).catch(()=>{});
-                    } else {
-                        await sock.sendMessage(OWNER_NUMBER, stored.msg.message).catch(()=>{});
+        try {
+            for (const { key, update } of updates) {
+                if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
+                    const stored = msgStore.get(key.id);
+                    if (stored) {
+                        const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
+                        const time = new Date(stored.timestamp * 1000).toLocaleTimeString('en-KE');
+                        const type = getContentType(stored.msg.message);
+
+                        await sock.sendMessage(OWNER_NUMBER, { 
+                            text: `🗑️ *DELETED MESSAGE EXPOSED*\n\n*From:* ${name}\n*Type:* ${type}\n*Time:* ${time}\n*Status:* ${stored.msg.key.fromMe? 'You deleted' : 'They deleted'}\n\n*Content below:*` 
+                        }).catch(()=>{});
+                        
+                        if (type === 'imageMessage' || type === 'videoMessage' || type === 'audioMessage' || type === 'documentMessage' || type === 'stickerMessage') {
+                            const buffer = await downloadMediaMessage(stored.msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
+                            const sendObj = {};
+                            sendObj[type.replace('Message','')] = buffer;
+                            sendObj.mimetype = stored.msg.message[type].mimetype;
+                            if(type === 'imageMessage') sendObj.caption = stored.msg.message[type].caption || '';
+                            await sock.sendMessage(OWNER_NUMBER, sendObj).catch(()=>{});
+                        } else {
+                            await sock.sendMessage(OWNER_NUMBER, stored.msg.message).catch(()=>{});
+                        }
+                        msgStore.delete(key.id);
                     }
-                    msgStore.delete(key.id);
                 }
             }
-        }
+        } catch(e) { console.log('AntiDelete error:', e.message); }
     });
 }
 
