@@ -5,8 +5,7 @@ const {
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
     jidNormalizedUser,
-    proto,
-    downloadContentFromMessage
+    proto
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
@@ -18,7 +17,6 @@ const BOT_NAME = 'EZED X TECH';
 const OWNER_NUMBER = '254769532338@s.whatsapp.net';
 const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 
-// AUTO FEATURES TOGGLES ✅
 let autoRecording = true;
 let autoTyping = true;
 let autoViewStatus = true;
@@ -27,10 +25,7 @@ let autoReadMessages = false;
 let autoReactDM = false;
 let antiDelete = false;
 
-// CACHE FOR ANTI-DELETE
 const msgStore = new Map();
-
-// RANDOM EMOJI LIST 🔥
 const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶'];
 
 let currentQR = null;
@@ -38,17 +33,9 @@ let sock;
 
 const MENU_TEXT =
 '*================================*\n' +
-'* [ EZED X TECH BOT V5.2 ] *\n' +
+'* [ EZED X TECH BOT V5.3 ] *\n' +
 '*================================*\n' +
-'* *👑 OWNER PANEL* \n' +
-'* *--- [ AUTO ] ---*\n' +
-'*.arec on/off > Auto Recording\n' +
-'*.atype on/off> Auto Typing\n' +
-'*.aview on/off> Auto View Status\n' +
-'*.alike on/off> Auto DM Status\n' +
-'*.aread on/off> Auto Read All DMs\n' +
-'*.areact on/off> Auto React DMs\n' +
-'*.antidelete on/off> Anti Delete V5.2\n' +
+'*.antidelete on/off> Anti Delete V5.3\n' +
 '*================================*';
 
 app.get('/', (req, res) => res.send('<h1>' + BOT_NAME + ' is running</h1><p><a href="/qr">Open QR</a></p>'));
@@ -86,13 +73,13 @@ async function startBot() {
         if (connection === 'open') {
             currentQR = null;
             console.log(BOT_NAME + ' Connected');
-            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' V5.2 is online. Ghost Mode: ON' });
+            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' V5.3 is online' });
         } else if (connection === 'close') {
             if (lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
         }
     });
 
-    // AUTO VIEW + AUTO DM STATUS
+    // STATUS HANDLER
     sock.ev.on('messages.upsert', async (m) => {
         const messages = m.messages;
         for (const msg of messages) {
@@ -109,7 +96,7 @@ async function startBot() {
         }
     });
 
-    // MAIN HANDLER V5.2
+    // MAIN HANDLER V5.3
     sock.ev.on('messages.upsert', async (m) => {
         const messages = m.messages;
         for (const msg of messages) {
@@ -122,35 +109,15 @@ async function startBot() {
             const isGroup = from.endsWith('@g.us');
             const isOwner = (sender === OWNER_NUMBER) || isFromMe;
 
-            // 1. ANTI-DELETE CATCHER V5.2 ✅ type 0 or 3
-            if (antiDelete && msg.message.protocolMessage) {
-                const pType = msg.message.protocolMessage.type;
-                if (pType === proto.Message.ProtocolMessage.Type.REVOKE || pType === 3) {
-                    const deletedKeyId = msg.message.protocolMessage.key.id;
-                    const stored = msgStore.get(deletedKeyId);
-                    if (stored &&!from.endsWith('@g.us')) {
-                        const name = await sock.getName(sender) || sender.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { 
-                            text: `🗑️ *ANTIDELETE ALERT*\n\n*From:* ${name}\n*Time:* ${new Date().toLocaleTimeString('en-KE')}\n` 
-                        });
-                        await sock.sendMessage(OWNER_NUMBER, stored.msg.message); // RESEND, not quote
-                        console.log('AntiDelete triggered V5.2:', name, deletedKeyId);
-                    }
-                    continue;
-                }
-            }
-
-            // 2. CACHE MESSAGE FOR ANTI-DELETE ✅ Cache BOTH sides now
+            // CACHE ALL DMS BOTH SIDES ✅
             if (antiDelete &&!isGroup) {
-                msgStore.set(msg.key.id, { msg, from });
-                if (msgStore.size > 500) msgStore.delete(msgStore.keys().next().value); // Cache 500
+                msgStore.set(msg.key.id, { msg, from, sender });
+                if (msgStore.size > 500) msgStore.delete(msgStore.keys().next().value);
                 console.log('Cached msg:', msg.key.id, isFromMe? '[You]' : '[Them]');
             }
 
-            // 3. AUTO READ BOTH SIDES ✅
             if (autoReadMessages) await sock.readMessages([msg.key]);
 
-            // 4. AUTO REACT TO DM FROM OTHERS ✅
             if (autoReactDM &&!isFromMe &&!isGroup) {
                 try {
                     const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
@@ -199,10 +166,47 @@ async function startBot() {
                 case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `OFF`' }); break;
                 case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 Auto React DMs: `ON`' }); break;
                 case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 Auto React DMs: `OFF`' }); break;
-                case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ AntiDelete V5.2: `ON`' }); break;
+                case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ AntiDelete V5.3: `ON`' }); break;
                 case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `OFF`' }); break;
             }
             setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
+        }
+    });
+
+    // V5.3 ANTI-DELETE LISTENER ✅ THIS IS THE FIX
+    sock.ev.on('messages.update', async (updates) => {
+        for (const { key, update } of updates) {
+            if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
+                const stored = msgStore.get(key.id);
+                if (stored) {
+                    const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
+                    await sock.sendMessage(OWNER_NUMBER, { 
+                        text: `🗑️ *ANTIDELETE ALERT V5.3*\n\n*From:* ${name}\n*Time:* ${new Date().toLocaleTimeString('en-KE')}\n` 
+                    });
+                    await sock.sendMessage(OWNER_NUMBER, stored.msg.message); // Resend
+                    console.log('AntiDelete triggered V5.3:', name, key.id);
+                } else {
+                    console.log('AntiDelete: Message not cached:', key.id);
+                }
+            }
+        }
+    });
+
+    // V5.3 DELETE EVENT LISTENER ✅ Backup for new WhatsApp
+    sock.ev.on('messages.delete', async (m) => {
+        if (!antiDelete) return;
+        const keys = m.keys || [];
+        for (const key of keys) {
+            if (key.remoteJid?.endsWith('@g.us')) continue;
+            const stored = msgStore.get(key.id);
+            if (stored) {
+                const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
+                await sock.sendMessage(OWNER_NUMBER, { 
+                    text: `🗑️ *ANTIDELETE ALERT V5.3 [DELETE EVENT]*\n\n*From:* ${name}\n` 
+                });
+                await sock.sendMessage(OWNER_NUMBER, stored.msg.message);
+                console.log('AntiDelete triggered V5.3 DELETE:', name, key.id);
+            }
         }
     });
 }
