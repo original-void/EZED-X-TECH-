@@ -11,7 +11,6 @@ const {
 const pino = require('pino');
 const QRCode = require('qrcode');
 const axios = require('axios');
-const fs = require('fs'); // For dump
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -40,23 +39,20 @@ setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
 const MENU_TEXT = `
 *╭━━━━━━━━━━━━━━╮*
-*┃ 👑 ${BOT_NAME} V7.2 👑 ┃*
+*┃ 👑 ${BOT_NAME} V7.3 👑 ┃*
 *╰━━━━━━━━━━━━━━╯*
-*┃ Mode:* \`RAW DUMP ON\`
+*┃ Mode:* \`INSTANT GRAB\`
 *┃ 🗂️ AD:* \`${msgStore.size}\` | 👻 VV: \`${vvStore.size}\`
-*┃ 1.* \`.menu\` 2.* \`.ping\` 3.* \`.time\` 4.* \`.jid\` 5.* \`.owner\`
-*┃ 6.* \`.cache\` 7.* \`.logs\` 8.* \`.dump\` > Get last RAW msg
-*┃ 9-14.* All auto toggles:.arec.atype.aview.alike.aread.areact.antidelete
+*┃.menu.ping.time.jid.owner.cache.logs
+*┃.arec.atype.aview.alike.aread.areact.antidelete
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V7.2 Debug</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V7.3 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
 app.listen(PORT, () => console.log('Server:', RENDER_URL));
-
-let LAST_RAW_MSG = null; // Store last msg for.dump
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
@@ -68,7 +64,11 @@ async function startBot() {
         version,
         browser: [BOT_NAME, 'Chrome', '1.0.0'],
         markOnlineOnConnect: true,
-        syncFullHistory: false
+        syncFullHistory: false,
+        getMessage: async key => { // CRITICAL: Needed for downloadMediaMessage on old msgs
+            const msg = msgStore.get(key.id)?.msg;
+            return msg?.message || { conversation: '' };
+        }
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -78,11 +78,11 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V7.2 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V7.3 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V7.2 Debug Online\nSend 1 View Once now. Then type.dump` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V7.3 Online\nMode: Instant ViewOnce Grab` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
@@ -112,61 +112,41 @@ async function startBot() {
                 const isOwner = from === OWNER_NUMBER || isFromMe;
 
                 const mtype = getContentType(msg.message);
-                LAST_RAW_MSG = msg; // SAVE LAST MSG FOR.dump
-                
-                console.log('[RAW V7.2]', msg.key.id, mtype); // LOG TYPE ONLY
-                console.log('[RAW JSON V7.2]', JSON.stringify(msg.message, null, 2)); // LOG FULL JSON
+                console.log('[NEW MSG V7.3]', msg.key.id, mtype, 'VV:', msg.message[mtype]?.viewOnce);
 
+                // 1. CACHE FIRST - BEFORE ANY DOWNLOAD
                 if (antiDelete &&!isGroup &&!isFromMe) {
                     msgStore.set(msg.key.id, { msg, from, sender: jidNormalizedUser(msg.key.participant || from), timestamp: msg.messageTimestamp });
                 }
 
-                // V7.2: GRAB ALL MEDIA + ALL WRAPPERS
-                if (!isGroup &&!isFromMe) {
-                    let mediaMsg = null;
-                    let isVV = false;
-                    let realType = mtype;
+                // 2. V7.3: INSTANT GRAB FOR imageMessage/videoMessage with viewOnce:true
+                if (!isGroup &&!isFromMe && (mtype === 'imageMessage' || mtype === 'videoMessage')) {
+                    const isVV = msg.message[mtype]?.viewOnce === true;
+                    if (!isVV) continue; // Only grab View Once, ignore normal media
 
-                    // Case 1: Direct image/video
-                    if (mtype === 'imageMessage' || mtype === 'videoMessage') {
-                        mediaMsg = msg.message;
-                        isVV = msg.message[mtype]?.viewOnce === true;
-                    } 
-                    // Case 2: viewOnceMessageV2 / V2Extension / V2Extension3 etc
-                    else if (mtype && mtype.includes('viewOnceMessage')) {
-                        const inner = msg.message[mtype]?.message;
-                        realType = Object.keys(inner)[0]; // imageMessage or videoMessage
-                        mediaMsg = inner;
-                        isVV = true;
-                        console.log('[VV WRAPPER HIT]', mtype, realType);
-                    }
-                    // Case 3: ephemeralMessage wrapper
-                    else if (mtype === 'ephemeralMessage') {
-                        const inner = msg.message.ephemeralMessage.message;
-                        const innerType = getContentType(inner);
-                        if(innerType === 'imageMessage' || innerType === 'videoMessage') {
-                            mediaMsg = inner;
-                            realType = innerType;
-                            isVV = inner[innerType]?.viewOnce === true;
-                        }
-                    }
-
-                    if (mediaMsg) {
-                        const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `📸 *MEDIA CAPTURED V7.2*\nFrom: ${fromName}\nType: ${realType}\nViewOnce: ${isVV}\nWrapper: ${mtype}` });
-                        
-                        const fakeMsg = { key: msg.key, message: mediaMsg };
-                        const buffer = await downloadMediaMessage(fakeMsg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
+                    const fromName = await sock.getName(from) || from.split('@')[0];
+                    await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE CAPTURED V7.3*\nFrom: ${fromName}\nType: ${mtype}\nID: \`${msg.key.id}\`\nDownloading NOW...` });
+                    
+                    try {
+                        // DOWNLOAD INSTANTLY. THIS IS THE FIX.
+                        const buffer = await downloadMediaMessage(msg, 'buffer', {}, { 
+                            reuploadRequest: sock.updateMediaMessage 
+                        });
                         const sendObj = {};
-                        sendObj[realType.replace('Message','')] = buffer;
-                        sendObj.mimetype = mediaMsg[realType].mimetype;
-                        if(realType === 'imageMessage') sendObj.caption = mediaMsg[realType].caption || '';
+                        sendObj[mtype.replace('Message','')] = buffer;
+                        sendObj.mimetype = msg.message[mtype].mimetype;
+                        if(mtype === 'imageMessage') sendObj.caption = msg.message[mtype].caption || '👻 Extracted View Once';
+                        
                         await sock.sendMessage(OWNER_NUMBER, sendObj);
-
-                        if(isVV) vvStore.set(msg.key.id, msg.key.id);
+                        vvStore.set(msg.key.id, msg.key.id);
+                        console.log('[VV SAVED V7.3]', msg.key.id);
+                    } catch (err) {
+                        console.log('[VV FAIL V7.3]', err.message);
+                        await sock.sendMessage(OWNER_NUMBER, { text: `❌ Failed to download View Once: ${err.message}\nID: ${msg.key.id}` });
                     }
                 }
 
+                // 3. AUTO FEATURES
                 if (autoReadMessages) await sock.readMessages([msg.key]);
                 if (autoReactDM &&!isFromMe &&!isGroup) {
                     await sock.sendMessage(from, { react: { text: REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)], key: msg.key } }).catch(()=>{});
@@ -187,12 +167,6 @@ async function startBot() {
                     case '.owner': await sock.sendMessage(from, { text: '👑 *Owner:* `254769532338`' }); break;
                     case '.cache': await sock.sendMessage(from, { text: `🗂️ *Cache*\nAD: \`${msgStore.size}\`\nVV: \`${vvStore.size}\`\nUptime: \`${Math.floor(process.uptime()/60)}m\`` }); break;
                     case '.logs': await sock.sendMessage(from, { text: `🧪 *Last 10 VV IDs:*\n\`\`${Array.from(vvStore.keys()).slice(-10).join('\n') || 'None'}\`\`` }); break;
-                    case '.dump':
-                        if(!LAST_RAW_MSG) return await sock.sendMessage(from, { text: '❌ No message received yet' });
-                        const dump = JSON.stringify(LAST_RAW_MSG.message, null, 2);
-                        fs.writeFileSync('./last_msg.json', dump);
-                        await sock.sendMessage(from, { document: fs.readFileSync('./last_msg.json'), fileName: 'last_msg.json', mimetype: 'application/json', caption: `🧪 *RAW MESSAGE DUMP*\nType: ${getContentType(LAST_RAW_MSG.message)}\nID: ${LAST_RAW_MSG.key.id}` });
-                        break;
 
                     case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 ON' }); break;
                     case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 OFF' }); break;
