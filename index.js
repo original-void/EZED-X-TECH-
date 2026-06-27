@@ -11,6 +11,7 @@ const {
 const pino = require('pino');
 const QRCode = require('qrcode');
 const axios = require('axios');
+const math = require('mathjs'); // npm i mathjs
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,16 +23,21 @@ const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
 
 let autoRecording = true;
 let autoTyping = true;
-let autoViewStatus = true; // CHANGED: ON by default now
+let autoViewStatus = true;
+let autoLikeStatus = true;
 let autoReadMessages = false;
 let autoReactDM = false;
 let antiDelete = true;
+let autoOnline = true;
+let autoReply = false;
+let autoReplyText = `👋 *${BOT_NAME}* is Auto Replying.\n\nI'm currently busy. I'll get back to you soon. ✅`;
 
 const msgStore = new Map();
 const vvStore = new Map(); 
+const notesDB = new Map(); // 6. Access Notes
 const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶'];
+const repliedTo = new Set();
 
-// GAME STORAGE
 const tttGames = new Map();
 const guessGames = new Map();
 
@@ -40,40 +46,40 @@ let sock;
 
 setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
-// V7.9 MENU
 const MENU_TEXT = `
 ╭══════════════╮
-║ 👑 ${BOT_NAME} V7.9 👑 ║
-║ 𝗚𝗔𝗠𝗘𝗦 + 𝗔𝗨𝗧𝗢 𝗩𝗜𝗘𝗪 ║
+║ 👑 ${BOT_NAME} V8.3 👑 ║
+║ 𝗔𝗜 𝗨𝗧𝗜𝗟𝗜𝗧𝗜𝗘𝗦 𝗣𝗔𝗖𝗞 ║
 ╰══════════════╯
 
 ┏━━━━━━━━━━〔 𝗦𝗬𝗦𝗧𝗘𝗠 〕━━━━━━━━━━┓
-┃ 📛 𝗕𝗼𝘁 : ${BOT_NAME} V7.9
-┃ 👀 𝗔𝘂𝘁𝗼𝗩𝗶𝗲𝘄 : \`${autoViewStatus? 'ON ✅' : 'OFF ❌'}\`
-┃ 🛡️ 𝗔𝗻𝘁𝗶𝗗𝗲𝗹𝗲𝘁𝗲 : \`${antiDelete? 'ON ✅' : 'OFF ❌'}\`
-┃ 🗂️ 𝗖𝗮𝗰𝗵𝗲 : \`${msgStore.size}\` | 👻 𝗩𝗩 : \`${vvStore.size}\`
+┃ 📛 𝗕𝗼𝘁 : ${BOT_NAME} V8.3
+┃ 🟢 𝗢𝗻𝗹𝗶𝗻𝗲 : \`${autoOnline? 'ON' : 'OFF'}\` | 🤖 𝗥𝗲𝗽𝗹𝘆 : \`${autoReply? 'ON' : 'OFF'}\`
+┃ 👀 𝗩𝗶𝗲𝘄 : \`${autoViewStatus? 'ON' : 'OFF'}\` | ❤️ 𝗟𝗶𝗸𝗲 : \`${autoLikeStatus? 'ON' : 'OFF'}\`
+┗━━━━━━━━━━━━━━━┛
+
+┏━━━━━━━━━━〔 𝗔𝗜 𝗧𝗢𝗟𝗦 🧠 〕━━━━━━━━━━┓
+┃ 𝟭. \`.summarize\` > Summarize text 📄
+┃ 𝟮. \`.translate sw/en/fr\` > Translate 🌍
+┃ 𝟯. \`.grammar\` > Fix grammar ✅
+┃ 𝟰. \`.calc 2+2*5\` > Solve Math 😂
+┃ 𝟱. \`.video [url]\` > Download Video ⬇️
+┃ 𝟲. \`.notes save/list/del\` > Notes 🗒️
 ┗━━━━━━━━━━━━━━━┛
 
 ┏━━━━━━━━━━〔 𝗚𝗔𝗠𝗘𝗦 🎮 〕━━━━━━━━━━┓
-┃ 𝟭. \`.tictactoe\` > X vs O ❌⭕
-┃ \`.1\` to \`.9\` > Place move
-┃ 𝟮. \`.guess\` > Guess 1-100 🔢
-┃ 𝟯. \`.rps\` > Rock Paper Scissors ✊
+┃ \`.tictactoe\` \`.guess\` \`.rps\`
 ┗━━━━━━━━━━━━━━━┛
 
 ┏━━━━━━━━━━〔 𝗔𝗨𝗧𝗢 〕━━━━━━━━━━┓
-┃ 𝟰. \`.aview on/off\` > Auto View Status
-┃ 𝟱. \`.arec on/off\` > Recording 🎤
-┃ 𝟲. \`.atype on/off\` > Typing ⌨️
-┃ 𝟳. \`.aread on/off\` > Read DMs 📖
-┃ 𝟴. \`.areact on/off\` > React DMs 😈
-┃ 𝟵. \`.antidelete on/off\` > AntiDelete 🗑️
+┃ \`.aonline\` \`.autoreply\` \`.setreply\`
+┃ \`.aview\` \`.alike\` \`.aread\` \`.areact\` \`.antidelete\`
 ┗━━━━━━━━━━━━━━━┛
-*No status spam DMs. Silent view only*
+*Reply to any text with the command*
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V7.9 Online</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V8.3 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -97,7 +103,6 @@ function unwrapViewOnce(msg) {
     return { isVV: false };
 }
 
-// TIC TAC TOE FUNCTIONS
 function newTTT() { return { board: Array(9).fill(' ') }; }
 function tttBoard(b) {
     return `\`\`
@@ -111,6 +116,33 @@ function tttBoard(b) {
 function checkWin(b, p) {
     const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
     return wins.some(w => w.every(i => b[i] === p));
+}
+
+// AI HELPERS
+async function callAI(prompt) {
+    try {
+        // Using free API - replace with OpenAI/Gemini key if you have one
+        const res = await axios.post('https://api.mistral.ai/v1/chat/completions', {
+            model: "mistral-tiny",
+            messages: [{role: "user", content: prompt}],
+            max_tokens: 500
+        }, {
+            headers: { 'Authorization': 'Bearer YOUR_MISTRAL_KEY_HERE' } // Add key or use other free API
+        });
+        return res.data.choices[0].message.content;
+    } catch {
+        return "❌ AI service down. Add API key for this to work.";
+    }
+}
+
+async function downloadVideo(url) {
+    try {
+        // Using yt-dlp API wrapper - replace with your downloader API
+        const res = await axios.get(`https://api.vidfly.ai/download?url=${encodeURIComponent(url)}`);
+        return res.data; // {title, url, thumbnail}
+    } catch {
+        return null;
+    }
 }
 
 async function startBot() {
@@ -134,24 +166,29 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V7.9 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V8.3 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V7.9 Online\n👀 Auto View Status: ON` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V8.3 Online\n🧠 AI Tools Loaded` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
     });
 
-    // V7.9: AUTO VIEW STATUS - SILENT, NO DM SPAM
+    // AUTO VIEW + AUTO LIKE STATUS
     sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
             if (msg.key.remoteJid === 'status@broadcast' && msg.key.participant &&!msg.key.fromMe) {
                 try {
                     if (autoViewStatus) {
-                        await sock.readMessages([msg.key]); // Only marks as seen. No reply.
-                        console.log('[STATUS VIEWED]', msg.key.participant);
+                        await new Promise(r => setTimeout(r, 1000));
+                        await sock.readMessages([msg.key]);
+                    }
+                    if (autoLikeStatus) {
+                        await new Promise(r => setTimeout(r, 1500));
+                        const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
+                        await sock.sendMessage(msg.key.participant, { react: { text: randomEmoji, key: msg.key } });
                     }
                 } catch (e) {}
             }
@@ -167,7 +204,10 @@ async function startBot() {
                 const isFromMe = msg.key.fromMe;
                 const isOwner = from === OWNER_NUMBER || isFromMe;
                 const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+                const quoted = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
+                const quotedText = quoted?.conversation || quoted?.extendedTextMessage?.text || '';
                 const command = text.toLowerCase().trim();
+                const args = text.slice(command.split(' ')[0].length).trim();
 
                 if (antiDelete &&!isGroup &&!isFromMe) {
                     msgStore.set(msg.key.id, { 
@@ -177,11 +217,19 @@ async function startBot() {
                     });
                 }
 
+                if (autoReply &&!isGroup &&!isFromMe &&!isOwner &&!repliedTo.has(from)) {
+                    await sock.sendPresenceUpdate('composing', from);
+                    await new Promise(r => setTimeout(r, 800));
+                    await sock.sendMessage(from, { text: autoReplyText });
+                    repliedTo.add(from);
+                    setTimeout(() => repliedTo.delete(from), 1000 * 60 * 30);
+                }
+
                 if (!isGroup &&!isFromMe) {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V7.9*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V8.3*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {};
@@ -190,9 +238,7 @@ async function startBot() {
                             if(realType === 'imageMessage') sendObj.caption = realMsg[realType].caption || '';
                             await sock.sendMessage(OWNER_NUMBER, sendObj);
                             vvStore.set(msg.key.id, 1);
-                        } catch (err) {
-                            await sock.sendMessage(OWNER_NUMBER, { text: `❌ VV Fail: ${err.message}` });
-                        }
+                        } catch (err) {}
                     }
                 }
 
@@ -202,13 +248,96 @@ async function startBot() {
                 }
 
                 if (!isOwner) continue;
+                if (autoOnline) await sock.sendPresenceUpdate('available', from);
                 if (autoTyping) await sock.sendPresenceUpdate('composing', from);
                 if (autoRecording) await sock.sendPresenceUpdate('recording', from);
 
-                // GAMES LOGIC
+                // 1. SUMMARIZE
+                if (command.startsWith('.summarize')) {
+                    const targetText = quotedText || args;
+                    if (!targetText) return sock.sendMessage(from, { text: '📄 Reply to a long text with `.summarize`' });
+                    await sock.sendMessage(from, { text: '⏳ Summarizing...' });
+                    const res = await callAI(`Summarize this in 5 bullet points: ${targetText}`);
+                    await sock.sendMessage(from, { text: `📄 *Summary:*\n${res}` });
+                    continue;
+                }
+
+                // 2. TRANSLATE
+                if (command.startsWith('.translate')) {
+                    const lang = args.split(' ')[0] || 'en';
+                    const targetText = quotedText || args.slice(lang.length).trim();
+                    if (!targetText) return sock.sendMessage(from, { text: '🌍 Usage: `.translate sw` then reply text\nLangs: sw, en, fr, es' });
+                    await sock.sendMessage(from, { text: '⏳ Translating...' });
+                    const res = await callAI(`Translate this to ${lang}: ${targetText}`);
+                    await sock.sendMessage(from, { text: `🌍 *Translated to ${lang}:*\n${res}` });
+                    continue;
+                }
+
+                // 3. GRAMMAR
+                if (command.startsWith('.grammar')) {
+                    const targetText = quotedText || args;
+                    if (!targetText) return sock.sendMessage(from, { text: '✅ Reply to text with `.grammar`' });
+                    await sock.sendMessage(from, { text: '⏳ Correcting...' });
+                    const res = await callAI(`Correct grammar and spelling only, no extra text: ${targetText}`);
+                    await sock.sendMessage(from, { text: `✅ *Corrected:*\n${res}` });
+                    continue;
+                }
+
+                // 4. CALC
+                if (command.startsWith('.calc')) {
+                    const equation = args;
+                    if (!equation) return sock.sendMessage(from, { text: '😂 Usage: `.calc 2+2*5`' });
+                    try {
+                        const result = math.evaluate(equation);
+                        await sock.sendMessage(from, { text: `🧮 \`${equation} = ${result}\`` });
+                    } catch {
+                        await sock.sendMessage(from, { text: '❌ Invalid equation boss 😂' });
+                    }
+                    continue;
+                }
+
+                // 5. VIDEO DOWNLOAD
+                if (command.startsWith('.video')) {
+                    const url = args;
+                    if (!url || !url.includes('http')) return sock.sendMessage(from, { text: '⬇️ Usage: `.video https://tiktok.com/...`' });
+                    await sock.sendMessage(from, { text: '⏳ Downloading video...' });
+                    const data = await downloadVideo(url);
+                    if (!data) return sock.sendMessage(from, { text: '❌ Failed to download. Link unsupported.' });
+                    try {
+                        await sock.sendMessage(from, { 
+                            video: { url: data.url }, 
+                            caption: `🎬 *${data.title || 'Downloaded Video'}*\nPowered by ${BOT_NAME}` 
+                        });
+                    } catch {
+                        await sock.sendMessage(from, { text: `⬇️ *${data.title}*\nDirect: ${data.url}` });
+                    }
+                    continue;
+                }
+
+                // 6. NOTES
+                if (command.startsWith('.notes')) {
+                    const subCmd = args.split(' ')[0];
+                    const content = args.slice(subCmd.length).trim();
+                    if (subCmd === 'save') {
+                        if (!content) return sock.sendMessage(from, { text: '🗒️ Usage: `.notes save my password is 123`' });
+                        notesDB.set(from, content);
+                        await sock.sendMessage(from, { text: '🗒️ Note saved ✅' });
+                    } else if (subCmd === 'list') {
+                        const note = notesDB.get(from);
+                        await sock.sendMessage(from, { text: note ? `🗒️ *Your Note:*\n${note}` : '🗒️ No note found.' });
+                    } else if (subCmd === 'del') {
+                        notesDB.delete(from);
+                        await sock.sendMessage(from, { text: '🗒️ Note deleted ✅' });
+                    } else {
+                        await sock.sendMessage(from, { text: '🗒️ Usage: `.notes save/list/del`' });
+                    }
+                    continue;
+                }
+
+                // GAMES
                 if (command === '.tictactoe') {
                     tttGames.set(from, newTTT());
-                    await sock.sendMessage(from, { text: `❌⭕ *TicTacToe Started!*\nYou = X | Bot = O\n${tttBoard(Array(9).fill(' '))}` });
+                    await sock.sendMessage(from, { text: `❌⭕ *TicTacToe*\nYou = X | Bot = O\n${tttBoard(Array(9).fill(' '))}` });
                     continue;
                 }
                 if (/^\.[1-9]$/.test(command) && tttGames.has(from)) {
@@ -236,7 +365,7 @@ async function startBot() {
                 }
                 if (command === '.guess') {
                     guessGames.set(from, { number: Math.floor(Math.random()*100)+1, tries: 0 });
-                    await sock.sendMessage(from, { text: `🔢 *Guess 1-100 Started!*\nSend a number.` });
+                    await sock.sendMessage(from, { text: `🔢 *Guess 1-100*\nSend a number.` });
                     continue;
                 }
                 if (/^\d+$/.test(command) && guessGames.has(from)) {
@@ -264,7 +393,6 @@ async function startBot() {
                     continue;
                 }
 
-                // CMDS
                 switch (command) {
                     case '.menu': await sock.sendMessage(from, { image: { url: MENU_IMAGE_URL }, caption: MENU_TEXT }); break;
                     case '.ping': const s = Date.now(); await sock.sendMessage(from, { text: `🏓 Pong \`${Date.now() - s}ms\`` }); break;
@@ -274,49 +402,11 @@ async function startBot() {
                     case '.cache': await sock.sendMessage(from, { text: `🗂️ Cache: \`${msgStore.size}\`\n👻 VV: \`${vvStore.size}\`` }); break;
                     case '.logs': await sock.sendMessage(from, { text: `🧪 VV Count: \`${vvStore.size}\`` }); break;
                     
-                    case '.aview on': autoViewStatus = true; await sock.sendMessage(from, { text: '👀 Auto View Status: `ON ✅`' }); break;
-                    case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 Auto View Status: `OFF ❌`' }); break;
-                    case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 ON' }); break;
-                    case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 OFF' }); break;
-                    case '.atype on': autoTyping = true; await sock.sendMessage(from, { text: '⌨️ ON' }); break;
-                    case '.atype off': autoTyping = false; await sock.sendMessage(from, { text: '⌨️ OFF' }); break;
-                    case '.aread on': autoReadMessages = true; await sock.sendMessage(from, { text: '📖 ON' }); break;
-                    case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 OFF' }); break;
-                    case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 ON' }); break;
-                    case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 OFF' }); break;
-                    case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ ON' }); break;
-                    case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ OFF' }); break;
-                }
-                setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
-            }
-        } catch(e) { console.log('Error:', e); }
-    });
-
-    sock.ev.on('messages.update', async (updates) => {
-        for (const { key, update } of updates) {
-            if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
-                const stored = msgStore.get(key.id);
-                if (stored) {
-                    const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
-                    const type = getContentType(stored.msg.message);
-                    await sock.sendMessage(OWNER_NUMBER, { text: `🗑️ *DELETED by ${name}*\n*Type:* ${type}` });
-                    try {
-                        if (['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage'].includes(type)) {
-                            const buffer = await downloadMediaMessage(stored.msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
-                            const sendObj = {};
-                            sendObj[type.replace('Message','')] = buffer;
-                            sendObj.mimetype = stored.msg.message[type].mimetype;
-                            if(type === 'imageMessage') sendObj.caption = stored.msg.message[type].caption || '';
-                            await sock.sendMessage(OWNER_NUMBER, sendObj);
-                        } else {
-                            await sock.sendMessage(OWNER_NUMBER, stored.msg.message);
-                        }
-                    } catch (e) {}
-                    msgStore.delete(key.id);
-                }
-            }
-        }
-    });
-}
-
-startBot();
+                    case '.aonline on': autoOnline = true; await sock.sendMessage(from, { text: '🟢 Auto Online: `ON ✅`' }); break;
+                    case '.aonline off': autoOnline = false; await sock.sendMessage(from, { text: '🟢 Auto Online: `OFF ❌`' }); break;
+                    case '.autoreply on': autoReply = true; repliedTo.clear(); await sock.sendMessage(from, { text: `🤖 Auto Reply: \`ON ✅\`` }); break;
+                    case '.autoreply off': autoReply = false; await sock.sendMessage(from, { text: '🤖 Auto Reply: `OFF ❌`' }); break;
+                    
+                    case '.aview on': autoViewStatus = true; await sock.sendMessage(from, { text: '👀 Auto View: `ON ✅`' }); break;
+                    case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 Auto View: `OFF ❌`' }); break;
+                    case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto Like: `ON ✅`'
