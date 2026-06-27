@@ -107,39 +107,33 @@ function newTTT() { return { board: Array(9).fill(' ') }; }
 function tttBoard(b) {
     return `\`\`
  ${b[0]} | ${b[1]} | ${b[2]}
----+
+---+---
  ${b[3]} | ${b[4]} | ${b[5]}
----+
+---+---
  ${b[6]} | ${b[7]} | ${b[8]}
-\`\nSend \`.1\` to \`.9\``;
+\`\`
+Send \`.1\` to \`.9\``;
 }
 function checkWin(b, p) {
     const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
     return wins.some(w => w.every(i => b[i] === p));
 }
 
-// AI HELPERS
+// AI HELPERS - OFFLINE VERSIONS FOR NOW
 async function callAI(prompt) {
-    try {
-        // Using free API - replace with OpenAI/Gemini key if you have one
-        const res = await axios.post('https://api.mistral.ai/v1/chat/completions', {
-            model: "mistral-tiny",
-            messages: [{role: "user", content: prompt}],
-            max_tokens: 500
-        }, {
-            headers: { 'Authorization': 'Bearer YOUR_MISTRAL_KEY_HERE' } // Add key or use other free API
-        });
-        return res.data.choices[0].message.content;
-    } catch {
-        return "❌ AI service down. Add API key for this to work.";
-    }
+    // TODO: Add your Mistral/OpenAI key here for real AI
+    // For now = offline fallback
+    if (prompt.includes('Summarize')) return '📄 *Summary:* AI key not added. Use your own API key.';
+    if (prompt.includes('Translate')) return '🌍 *Translated:* AI key not added.';
+    if (prompt.includes('Correct grammar')) return '✅ *Corrected:* AI key not added.';
+    return "❌ Add API key in callAI() for AI to work.";
 }
 
 async function downloadVideo(url) {
     try {
-        // Using yt-dlp API wrapper - replace with your downloader API
-        const res = await axios.get(`https://api.vidfly.ai/download?url=${encodeURIComponent(url)}`);
-        return res.data; // {title, url, thumbnail}
+        // Replace with your downloader API. This is a placeholder.
+        // Example: Cobalt, vidfly, yt-dlp API
+        return { title: 'Video Download', url: url };
     } catch {
         return null;
     }
@@ -278,7 +272,7 @@ async function startBot() {
                     const targetText = quotedText || args;
                     if (!targetText) return sock.sendMessage(from, { text: '✅ Reply to text with `.grammar`' });
                     await sock.sendMessage(from, { text: '⏳ Correcting...' });
-                    const res = await callAI(`Correct grammar and spelling only, no extra text: ${targetText}`);
+                    const res = await callAI(`Correct grammar and spelling only: ${targetText}`);
                     await sock.sendMessage(from, { text: `✅ *Corrected:*\n${res}` });
                     continue;
                 }
@@ -299,18 +293,11 @@ async function startBot() {
                 // 5. VIDEO DOWNLOAD
                 if (command.startsWith('.video')) {
                     const url = args;
-                    if (!url || !url.includes('http')) return sock.sendMessage(from, { text: '⬇️ Usage: `.video https://tiktok.com/...`' });
+                    if (!url ||!url.includes('http')) return sock.sendMessage(from, { text: '⬇️ Usage: `.video https://tiktok.com/...`' });
                     await sock.sendMessage(from, { text: '⏳ Downloading video...' });
                     const data = await downloadVideo(url);
-                    if (!data) return sock.sendMessage(from, { text: '❌ Failed to download. Link unsupported.' });
-                    try {
-                        await sock.sendMessage(from, { 
-                            video: { url: data.url }, 
-                            caption: `🎬 *${data.title || 'Downloaded Video'}*\nPowered by ${BOT_NAME}` 
-                        });
-                    } catch {
-                        await sock.sendMessage(from, { text: `⬇️ *${data.title}*\nDirect: ${data.url}` });
-                    }
+                    if (!data) return sock.sendMessage(from, { text: '❌ Failed to download. Add downloader API.' });
+                    await sock.sendMessage(from, { text: `⬇️ *${data.title}*\nLink: ${data.url}` });
                     continue;
                 }
 
@@ -324,7 +311,7 @@ async function startBot() {
                         await sock.sendMessage(from, { text: '🗒️ Note saved ✅' });
                     } else if (subCmd === 'list') {
                         const note = notesDB.get(from);
-                        await sock.sendMessage(from, { text: note ? `🗒️ *Your Note:*\n${note}` : '🗒️ No note found.' });
+                        await sock.sendMessage(from, { text: note? `🗒️ *Your Note:*\n${note}` : '🗒️ No note found.' });
                     } else if (subCmd === 'del') {
                         notesDB.delete(from);
                         await sock.sendMessage(from, { text: '🗒️ Note deleted ✅' });
@@ -409,4 +396,9 @@ async function startBot() {
                     
                     case '.aview on': autoViewStatus = true; await sock.sendMessage(from, { text: '👀 Auto View: `ON ✅`' }); break;
                     case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 Auto View: `OFF ❌`' }); break;
-                    case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto Like: `ON ✅`'
+                    case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto Like: `ON ✅`' }); break;
+                    case '.alike off': autoLikeStatus = false; await sock.sendMessage(from, { text: '❤️ Auto Like: `OFF ❌`' }); break;
+                    case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 ON' }); break;
+                    case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 OFF' }); break;
+                    case '.atype on': autoTyping = true; await sock.sendMessage(from, { text: '⌨️ ON' }); break;
+            
