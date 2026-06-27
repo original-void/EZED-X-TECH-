@@ -20,6 +20,7 @@ const BOT_NAME = 'EZED X TECH';
 const OWNER_NUMBER = '254769532338@s.whatsapp.net';
 const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
+const MISTRAL_KEY = 'leekOeO7HJToWQZ9jXlHXj596KAaEet8'; // <<<< PUT NEW KEY HERE, NOT IN CHAT
 
 let autoRecording = true;
 let autoTyping = true;
@@ -49,33 +50,8 @@ setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 const MENU_TEXT = `
 ╭══════════════╮
 ║ 👑 ${BOT_NAME} V8.3 👑 ║
-║ 𝗔𝗜 𝗨𝗧𝗜𝗟𝗜𝗧𝗜𝗘𝗦 𝗣𝗔𝗖𝗞 ║
+║ 𝗠𝗜𝗦𝗧𝗥𝗔𝗟 𝗔𝗜 𝗣𝗔𝗖𝗞 ║
 ╰══════════════╯
-
-┏━━━━━━━━━━〔 𝗦𝗬𝗦𝗧𝗘𝗠 〕━━━━━━━━━━┓
-┃ 📛 𝗕𝗼𝘁 : ${BOT_NAME} V8.3
-┃ 🟢 𝗢𝗻𝗹𝗶𝗻𝗲 : \`${autoOnline? 'ON' : 'OFF'}\` | 🤖 𝗥𝗲𝗽𝗹𝘆 : \`${autoReply? 'ON' : 'OFF'}\`
-┃ 👀 𝗩𝗶𝗲𝘄 : \`${autoViewStatus? 'ON' : 'OFF'}\` | ❤️ 𝗟𝗶𝗸𝗲 : \`${autoLikeStatus? 'ON' : 'OFF'}\`
-┗━━━━━━━━━━━━━━━┛
-
-┏━━━━━━━━━━〔 𝗔𝗜 𝗧𝗢𝗟𝗦 🧠 〕━━━━━━━━━━┓
-┃ 𝟭. \`.summarize\` > Summarize text 📄
-┃ 𝟮. \`.translate sw/en/fr\` > Translate 🌍
-┃ 𝟯. \`.grammar\` > Fix grammar ✅
-┃ 𝟰. \`.calc 2+2*5\` > Solve Math 😂
-┃ 𝟱. \`.video [url]\` > Download Video ⬇️
-┃ 𝟲. \`.notes save/list/del\` > Notes 🗒️
-┗━━━━━━━━━━━━━━━┛
-
-┏━━━━━━━━━━〔 𝗚𝗔𝗠𝗘𝗦 🎮 〕━━━━━━━━━━┓
-┃ \`.tictactoe\` \`.guess\` \`.rps\`
-┗━━━━━━━━━━━━━━━┛
-
-┏━━━━━━━━━━〔 𝗔𝗨𝗧𝗢 〕━━━━━━━━━━┓
-┃ \`.aonline\` \`.autoreply\` \`.setreply\`
-┃ \`.aview\` \`.alike\` \`.aread\` \`.areact\` \`.antidelete\`
-┗━━━━━━━━━━━━━━━┛
-*Reply to any text with the command*
 `;
 
 app.get('/', async (req, res) => {
@@ -119,9 +95,23 @@ function checkWin(b, p) {
     return wins.some(w => w.every(i => b[i] === p));
 }
 
-// OFFLINE AI FALLBACK
 async function callAI(prompt) {
-    return "❌ Add API key in callAI() for AI to work. For now = offline mode.";
+    if (!MISTRAL_KEY || MISTRAL_KEY === 'PASTE_MISTRAL_KEY_HERE') {
+        return "❌ Add your Mistral API key in code first.";
+    }
+    try {
+        const res = await axios.post('https://api.mistral.ai/v1/chat/completions', {
+            model: "mistral-tiny",
+            messages: [{ role: "user", content: prompt }],
+            max_tokens: 500
+        }, {
+            headers: { 'Authorization': `Bearer ${MISTRAL_KEY}` }
+        });
+        return res.data.choices[0].message.content;
+    } catch (e) {
+        console.log('AI Error:', e.response?.data || e.message);
+        return "❌ AI Error. Check key or quota.";
+    }
 }
 
 async function downloadVideo(url) {
@@ -153,13 +143,12 @@ async function startBot() {
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V8.3 Online\n🧠 AI Tools Loaded` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V8.3 Online\n🧠 Mistral AI Connected` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
     });
 
-    // AUTO VIEW + AUTO LIKE STATUS
     sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
             if (msg.key.remoteJid === 'status@broadcast' && msg.key.participant &&!msg.key.fromMe) {
@@ -235,38 +224,34 @@ async function startBot() {
                 if (autoTyping) await sock.sendPresenceUpdate('composing', from);
                 if (autoRecording) await sock.sendPresenceUpdate('recording', from);
 
-                // 1. SUMMARIZE
                 if (command.startsWith('.summarize')) {
                     const targetText = quotedText || args;
                     if (!targetText) return sock.sendMessage(from, { text: '📄 Reply to a long text with `.summarize`' });
                     await sock.sendMessage(from, { text: '⏳ Summarizing...' });
-                    const res = await callAI(`Summarize: ${targetText}`);
+                    const res = await callAI(`Summarize this in 5 bullet points: ${targetText}`);
                     await sock.sendMessage(from, { text: `📄 *Summary:*\n${res}` });
                     continue;
                 }
 
-                // 2. TRANSLATE
                 if (command.startsWith('.translate')) {
                     const lang = args.split(' ')[0] || 'en';
                     const targetText = quotedText || args.slice(lang.length).trim();
                     if (!targetText) return sock.sendMessage(from, { text: '🌍 Usage: `.translate sw` then reply text' });
                     await sock.sendMessage(from, { text: '⏳ Translating...' });
-                    const res = await callAI(`Translate to ${lang}: ${targetText}`);
+                    const res = await callAI(`Translate this to ${lang} language only: ${targetText}`);
                     await sock.sendMessage(from, { text: `🌍 *Translated to ${lang}:*\n${res}` });
                     continue;
                 }
 
-                // 3. GRAMMAR
                 if (command.startsWith('.grammar')) {
                     const targetText = quotedText || args;
                     if (!targetText) return sock.sendMessage(from, { text: '✅ Reply to text with `.grammar`' });
                     await sock.sendMessage(from, { text: '⏳ Correcting...' });
-                    const res = await callAI(`Correct grammar: ${targetText}`);
+                    const res = await callAI(`Correct grammar and spelling only: ${targetText}`);
                     await sock.sendMessage(from, { text: `✅ *Corrected:*\n${res}` });
                     continue;
                 }
 
-                // 4. CALC
                 if (command.startsWith('.calc')) {
                     const equation = args;
                     if (!equation) return sock.sendMessage(from, { text: '😂 Usage: `.calc 2+2*5`' });
@@ -279,37 +264,6 @@ async function startBot() {
                     continue;
                 }
 
-                // 5. VIDEO DOWNLOAD
-                if (command.startsWith('.video')) {
-                    const url = args;
-                    if (!url ||!url.includes('http')) return sock.sendMessage(from, { text: '⬇️ Usage: `.video https://tiktok.com/...`' });
-                    await sock.sendMessage(from, { text: '⏳ Downloading video...' });
-                    const data = await downloadVideo(url);
-                    await sock.sendMessage(from, { text: `⬇️ *${data.title}*\nLink: ${data.url}` });
-                    continue;
-                }
-
-                // 6. NOTES
-                if (command.startsWith('.notes')) {
-                    const subCmd = args.split(' ')[0];
-                    const content = args.slice(subCmd.length).trim();
-                    if (subCmd === 'save') {
-                        if (!content) return sock.sendMessage(from, { text: '🗒️ Usage: `.notes save my password is 123`' });
-                        notesDB.set(from, content);
-                        await sock.sendMessage(from, { text: '🗒️ Note saved ✅' });
-                    } else if (subCmd === 'list') {
-                        const note = notesDB.get(from);
-                        await sock.sendMessage(from, { text: note? `🗒️ *Your Note:*\n${note}` : '🗒️ No note found.' });
-                    } else if (subCmd === 'del') {
-                        notesDB.delete(from);
-                        await sock.sendMessage(from, { text: '🗒️ Note deleted ✅' });
-                    } else {
-                        await sock.sendMessage(from, { text: '🗒️ Usage: `.notes save/list/del`' });
-                    }
-                    continue;
-                }
-
-                // GAMES
                 if (command === '.tictactoe') {
                     tttGames.set(from, newTTT());
                     await sock.sendMessage(from, { text: `❌⭕ *TicTacToe*\nYou = X | Bot = O\n${tttBoard(Array(9).fill(' '))}` });
@@ -338,76 +292,19 @@ async function startBot() {
                     await sock.sendMessage(from, { text: `Your move:\n${tttBoard(game.board)}` });
                     continue;
                 }
-                if (command === '.guess') {
-                    guessGames.set(from, { number: Math.floor(Math.random()*100)+1, tries: 0 });
-                    await sock.sendMessage(from, { text: `🔢 *Guess 1-100*\nSend a number.` });
-                    continue;
-                }
-                if (/^\d+$/.test(command) && guessGames.has(from)) {
-                    const game = guessGames.get(from);
-                    const num = parseInt(command);
-                    game.tries++;
-                    if (num === game.number) {
-                        guessGames.delete(from);
-                        return sock.sendMessage(from, { text: `🎉 Correct! ${num} in ${game.tries} tries` });
-                    }
-                    await sock.sendMessage(from, { text: num < game.number? `📈 Higher!` : `📉 Lower!` });
-                    continue;
-                }
-                if (command === '.rps') {
-                    await sock.sendMessage(from, { text: `✊📄✂️ *RPS*\nReply: \`rock\` \`paper\` \`scissors\`` });
-                    continue;
-                }
-                if (['rock','paper','scissors'].includes(command)) {
-                    const choices = ['rock','paper','scissors'];
-                    const bot = choices[Math.floor(Math.random()*3)];
-                    let result = 'Draw 🤝';
-                    if ((command==='rock'&&bot==='scissors')||(command==='paper'&&bot==='rock')||(command==='scissors'&&bot==='paper')) result = 'You Win! 🎉';
-                    if ((bot==='rock'&&command==='scissors')||(bot==='paper'&&command==='rock')||(bot==='scissors'&&command==='paper')) result = 'Bot Wins! 🤖';
-                    await sock.sendMessage(from, { text: `You: ${command} vs Bot: ${bot}\n${result}` });
-                    continue;
-                }
 
                 switch (command) {
                     case '.menu': await sock.sendMessage(from, { image: { url: MENU_IMAGE_URL }, caption: MENU_TEXT }); break;
                     case '.ping': const s = Date.now(); await sock.sendMessage(from, { text: `🏓 Pong \`${Date.now() - s}ms\`` }); break;
                     case '.time': await sock.sendMessage(from, { text: `🕒 \`${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}\`` }); break;
-                    case '.jid': await sock.sendMessage(from, { text: `🆔 \`${from}\`` }); break;
-                    case '.owner': await sock.sendMessage(from, { text: '👑 `254769532338`' }); break;
-                    case '.cache': await sock.sendMessage(from, { text: `🗂️ Cache: \`${msgStore.size}\`\n👻 VV: \`${vvStore.size}\`` }); break;
-                    case '.logs': await sock.sendMessage(from, { text: `🧪 VV Count: \`${vvStore.size}\`` }); break;
-                    
-                    case '.aonline on': autoOnline = true; await sock.sendMessage(from, { text: '🟢 Auto Online: `ON ✅`' }); break;
-                    case '.aonline off': autoOnline = false; await sock.sendMessage(from, { text: '🟢 Auto Online: `OFF ❌`' }); break;
-                    case '.autoreply on': autoReply = true; repliedTo.clear(); await sock.sendMessage(from, { text: `🤖 Auto Reply: \`ON ✅\`` }); break;
-                    case '.autoreply off': autoReply = false; await sock.sendMessage(from, { text: '🤖 Auto Reply: `OFF ❌`' }); break;
-                    
-                    case '.aview on': autoViewStatus = true; await sock.sendMessage(from, { text: '👀 Auto View: `ON ✅`' }); break;
-                    case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 Auto View: `OFF ❌`' }); break;
-                    case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto Like: `ON ✅`' }); break;
-                    case '.alike off': autoLikeStatus = false; await sock.sendMessage(from, { text: '❤️ Auto Like: `OFF ❌`' }); break;
-                    case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 ON' }); break;
-                    case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 OFF' }); break;
-                    case '.atype on': autoTyping = true; await sock.sendMessage(from, { text: '⌨️ ON' }); break;
-                    case '.atype off': autoTyping = false; await sock.sendMessage(from, { text: '⌨️ OFF' }); break;
-                    case '.aread on': autoReadMessages = true; await sock.sendMessage(from, { text: '📖 ON' }); break;
-                    case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 OFF' }); break;
-                    case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 ON' }); break;
-                    case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 OFF' }); break;
-                    case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ ON' }); break;
-                    case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ OFF' }); break;
-                }
-
-                if (command.startsWith('.setreply ')) {
-                    autoReplyText = text.slice(10).trim();
-                    await sock.sendMessage(from, { text: `✍️ Auto Reply updated:\n\`\`${autoReplyText}\`\`` });
-                    continue;
+                    case '.aonline on': autoOnline = true; await sock.sendMessage(from, { text: '🟢 ON' }); break;
+                    case '.aonline off': autoOnline = false; await sock.sendMessage(from, { text: '🟢 OFF' }); break;
                 }
 
                 setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
             }
         } catch(e) { console.log('Error:', e); }
-    }); // <- CLOSE messages.upsert
+    });
 
     sock.ev.on('messages.update', async (updates) => {
         for (const { key, update } of updates) {
@@ -417,24 +314,12 @@ async function startBot() {
                     const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
                     const type = getContentType(stored.msg.message);
                     await sock.sendMessage(OWNER_NUMBER, { text: `🗑️ *DELETED by ${name}*\n*Type:* ${type}` });
-                    try {
-                        if (['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage'].includes(type)) {
-                            const buffer = await downloadMediaMessage(stored.msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
-                            const sendObj = {};
-                            sendObj[type.replace('Message','')] = buffer;
-                            sendObj.mimetype = stored.msg.message[type].mimetype;
-                            if(type === 'imageMessage') sendObj.caption = stored.msg.message[type].caption || '';
-                            await sock.sendMessage(OWNER_NUMBER, sendObj);
-                        } else {
-                            await sock.sendMessage(OWNER_NUMBER, stored.msg.message);
-                        }
-                    } catch (e) {}
                     msgStore.delete(key.id);
                 }
             }
         }
-    }); // <- CLOSE messages.update
+    });
 
-} // <- CLOSE startBot() <<< THIS WAS MISSING
+}
 
-startBot(); // <- LAST LINE
+startBot();
