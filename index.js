@@ -28,7 +28,7 @@ let autoReactDM = false;
 let antiDelete = true;
 
 const MAX_CACHE = 200;
-const MAX_VV_CACHE = 300; // Increased for VV
+const MAX_VV_CACHE = 300; 
 const msgStore = new Map(); // AntiDelete
 const vvStore = new Map(); //.vv View Once 
 const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶'];
@@ -48,10 +48,10 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000);
 
-// DECORATED MENU V6.3a +.vv
+// DECORATED MENU V6.4 +.vv FIXED
 const MENU_TEXT = `
 *╭━━━━━━━━━━━━━━╮*
-*┃ 👑 ${BOT_NAME} V6.3a 👑 ┃*
+*┃ 👑 ${BOT_NAME} V6.4 👑 ┃*
 *╰━━━━━━━━━━━━━━╯*
 
 *╭───〔 𝗜𝗡𝗙𝗢 〕───╮*
@@ -86,7 +86,7 @@ const MENU_TEXT = `
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 ${BOT_NAME} V6.3a</h1><h2>Waiting for QR... Refresh</h2></div>`);
+    if (!currentQR) return res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 ${BOT_NAME} V6.4</h1><h2>Waiting for QR... Refresh</h2></div>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:320px;border:5px solid #25D366;border-radius:20px;" /><p>${RENDER_URL}</p></div>`);
 });
@@ -113,12 +113,12 @@ async function startBot() {
             currentQR = qr;
             try {
                 const qrBuffer = await QRCode.toBuffer(qr);
-                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V6.3a QR*\nScan at: ${RENDER_URL}` });
+                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V6.4 QR*\nScan at: ${RENDER_URL}` });
             } catch(e){}
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V6.3a Online\nType.menu |.vv to expose View Once` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V6.4 Online\nType.menu |.vv to expose View Once` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
@@ -158,12 +158,27 @@ async function startBot() {
                     });
                 }
 
-                // 2. CACHE FOR.VV VIEW ONCE 👻 DEBUG LOG ADDED
+                // 2. CACHE FOR.VV VIEW ONCE 👻 V6.4 FIXED CATCHER
                 const mtype = getContentType(msg.message);
-                if (msg.message[mtype]?.viewOnce &&!isGroup) {
-                    vvStore.set(msg.key.id, { msg, from, sender: jidNormalizedUser(msg.key.participant || from) });
-                    console.log('[VV SAVED]', msg.key.id, mtype, from); // DEBUG
-                    await sock.sendMessage(OWNER_NUMBER, { text: `👻 *View Once Saved*\nFrom: ${(await sock.getName(from)) || from.split('@')[0]}\nType: ${mtype}\nID: \`${msg.key.id}\`\nReply to this with.vv` }).catch(()=>{});
+                let isViewOnce = false;
+                let realMsg = msg.message;
+
+                // WhatsApp 2026: 3 different ViewOnce wrappers
+                if (mtype === 'viewOnceMessageV2' || mtype === 'viewOnceMessageV2Extension') {
+                    realMsg = msg.message[mtype].message;
+                    isViewOnce = true;
+                } else if (mtype === 'imageMessage' && msg.message.imageMessage?.viewOnce) {
+                    isViewOnce = true;
+                } else if (mtype === 'videoMessage' && msg.message.videoMessage?.viewOnce) {
+                    isViewOnce = true;
+                }
+
+                if (isViewOnce &&!isGroup &&!isFromMe) {
+                    vvStore.set(msg.key.id, { msg, from, sender: jidNormalizedUser(msg.key.participant || from), realMsg });
+                    console.log('[VV SAVED V6.4]', msg.key.id, mtype, from);
+                    await sock.sendMessage(OWNER_NUMBER, { 
+                        text: `👻 *View Once Saved V6.4*\nFrom: ${(await sock.getName(from)) || from.split('@')[0]}\nType: ${Object.keys(realMsg)[0]}\nID: \`${msg.key.id}\`\nReply to this with.vv` 
+                    }).catch(()=>{});
                 }
 
                 if (autoReadMessages) await sock.readMessages([msg.key]);
@@ -203,22 +218,23 @@ async function startBot() {
                         await sock.sendMessage(from, { text: `🗂️ *Cache Status*\nAntiDelete: \`${msgStore.size}/${MAX_CACHE}\`\nVV: \`${vvStore.size}/${MAX_VV_CACHE}\`` });
                         break;
                     
-                    //.VV COMMAND 👻 FIXED
+                    //.VV COMMAND 👻 V6.4 FIXED
                     case '.vv':
                         if (!quotedId) return await sock.sendMessage(from, { text: '❌ Reply to the *View Once* message with.vv\nNot just type.vv' });
-                        console.log('[VV REQUEST]', quotedId, 'Cache:', vvStore.has(quotedId)); // DEBUG
+                        console.log('[VV REQUEST V6.4]', quotedId, 'Cache:', vvStore.has(quotedId));
                         
                         const vv = vvStore.get(quotedId);
                         if (!vv) return await sock.sendMessage(from, { text: `❌ View Once not found or expired from cache\nID: \`${quotedId}\`\nCache size: ${vvStore.size}` });
                         
-                        const vvType = getContentType(vv.msg.message);
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE EXPOSED*\nFrom: ${(await sock.getName(vv.sender)) || vv.sender.split('@')[0]}\nType: ${vvType}` });
+                        const vvType = Object.keys(vv.realMsg)[0];
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE EXPOSED V6.4*\nFrom: ${(await sock.getName(vv.sender)) || vv.sender.split('@')[0]}\nType: ${vvType}` });
                         
-                        const buffer = await downloadMediaMessage(vv.msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
+                        const fakeMsg = { key: vv.msg.key, message: vv.realMsg };
+                        const buffer = await downloadMediaMessage(fakeMsg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                         const sendObj = {};
                         sendObj[vvType.replace('Message','')] = buffer;
-                        sendObj.mimetype = vv.msg.message[vvType].mimetype;
-                        if(vvType === 'imageMessage') sendObj.caption = vv.msg.message[vvType].caption || '';
+                        sendObj.mimetype = vv.realMsg[vvType].mimetype;
+                        if(vvType === 'imageMessage') sendObj.caption = vv.realMsg[vvType].caption || '';
                         await sock.sendMessage(OWNER_NUMBER, sendObj);
                         break;
 
