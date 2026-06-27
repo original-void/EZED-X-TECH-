@@ -395,4 +395,46 @@ async function startBot() {
                     case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 ON' }); break;
                     case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 OFF' }); break;
                     case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ ON' }); break;
-                    case '.antidelete off': antiDelet
+                    case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ OFF' }); break;
+                }
+
+                if (command.startsWith('.setreply ')) {
+                    autoReplyText = text.slice(10).trim();
+                    await sock.sendMessage(from, { text: `✍️ Auto Reply updated:\n\`\`${autoReplyText}\`\`` });
+                    continue;
+                }
+
+                setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
+            }
+        } catch(e) { console.log('Error:', e); }
+    }); // <- CLOSE messages.upsert
+
+    sock.ev.on('messages.update', async (updates) => {
+        for (const { key, update } of updates) {
+            if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
+                const stored = msgStore.get(key.id);
+                if (stored) {
+                    const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
+                    const type = getContentType(stored.msg.message);
+                    await sock.sendMessage(OWNER_NUMBER, { text: `🗑️ *DELETED by ${name}*\n*Type:* ${type}` });
+                    try {
+                        if (['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage'].includes(type)) {
+                            const buffer = await downloadMediaMessage(stored.msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
+                            const sendObj = {};
+                            sendObj[type.replace('Message','')] = buffer;
+                            sendObj.mimetype = stored.msg.message[type].mimetype;
+                            if(type === 'imageMessage') sendObj.caption = stored.msg.message[type].caption || '';
+                            await sock.sendMessage(OWNER_NUMBER, sendObj);
+                        } else {
+                            await sock.sendMessage(OWNER_NUMBER, stored.msg.message);
+                        }
+                    } catch (e) {}
+                    msgStore.delete(key.id);
+                }
+            }
+        }
+    }); // <- CLOSE messages.update
+
+} // <- CLOSE startBot() <<< THIS WAS MISSING
+
+startBot(); // <- LAST LINE
