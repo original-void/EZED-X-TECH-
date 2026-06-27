@@ -27,37 +27,27 @@ let autoReadMessages = false;
 let autoReactDM = false;
 let antiDelete = true;
 
-const MAX_CACHE = 200;
-const MAX_VV_CACHE = 300; 
-const msgStore = new Map(); 
-const vvStore = new Map(); 
+const msgStore = new Map(); // No size limit now
+const vvStore = new Map(); // No size limit now
 const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶'];
 
 let currentQR = null;
 let sock;
 
-setInterval(() => {
-    if (msgStore.size > MAX_CACHE) {
-        const keysToDelete = Array.from(msgStore.keys()).slice(0, msgStore.size - MAX_CACHE);
-        keysToDelete.forEach(k => msgStore.delete(k));
-    }
-    if (vvStore.size > MAX_VV_CACHE) {
-        const keysToDelete = Array.from(vvStore.keys()).slice(0, vvStore.size - MAX_VV_CACHE);
-        keysToDelete.forEach(k => vvStore.delete(k));
-    }
-}, 5 * 60 * 1000);
+// NO MORE AUTO CLEANUP. Cache stays forever until restart.
 
 const MENU_TEXT = `
 *╭━━━━━━━━━━━━━━╮*
-*┃ 👑 ${BOT_NAME} V6.7 👑 ┃*
+*┃ 👑 ${BOT_NAME} V6.8 👑 ┃*
 *╰━━━━━━━━━━━━━━╯*
 
 *╭───〔 𝗜𝗡𝗙𝗢 〕───╮*
 *┃ 📛 Bot:* ${BOT_NAME}
 *┃ ⚡ Status:* \`Online ✅\`
 *┃ 🛡️ AntiDelete:* \`${antiDelete? 'ON' : 'OFF'}\`
-*┃ 🗂️ AD Cache:* \`${msgStore.size}/${MAX_CACHE}\`
-*┃ 👻 VV Cache:* \`${vvStore.size}/${MAX_VV_CACHE}\`
+*┃ 🗂️ AD Cache:* \`${msgStore.size}\`
+*┃ 👻 VV Cache:* \`${vvStore.size}\` *No Limit*
+*┃ Mode:* \`Auto Extract ON\`
 *╰━━━━━━━━━━━━╯*
 
 *╭───〔 𝗚𝗘𝗡𝗘𝗥𝗔𝗟 〕───╮*
@@ -67,45 +57,41 @@ const MENU_TEXT = `
 *┃ 4.* \`.jid\` > Get chat ID 🆔
 *┃ 5.* \`.owner\` > Show owner 👑
 *┃ 6.* \`.cache\` > Check cache size 🗂️
-*┃ 7.* \`.vv\` > Expose View Once 👻 *Reply to VV*
-*┃ 8.* \`.logs\` > Get last 10 VV IDs 🧪
+*┃ 7.* \`.vv\` > Manual Extract 👻 *Reply to VV*
 *╰━━━━━━━━━━━━╯*
 
 *╭───〔 𝗔𝗨𝗧𝗢 𝗙𝗘𝗔𝗧𝗨𝗥𝗘𝗦 〕───╮*
-*┃ 9.* \`.arec on/off\` > Auto Recording 🎤
-*┃ 10.* \`.atype on/off\` > Auto Typing ⌨️
-*┃ 11.* \`.aview on/off\` > Auto View Status 👀
-*┃ 12.* \`.alike on/off\` > Auto DM Status ❤️
-*┃ 13.* \`.aread on/off\` > Auto Read All DMs 📖
-*┃ 14.* \`.areact on/off\` > Auto React DMs 😈
-*┃ 15.* \`.antidelete on/off\` > Anti Delete 🗑️
+*┃ 8.* \`.arec on/off\` > Auto Recording 🎤
+*┃ 9.* \`.atype on/off\` > Auto Typing ⌨️
+*┃ 10.* \`.aview on/off\` > Auto View Status 👀
+*┃ 11.* \`.alike on/off\` > Auto DM Status ❤️
+*┃ 12.* \`.aread on/off\` > Auto Read All DMs 📖
+*┃ 13.* \`.areact on/off\` > Auto React DMs 😈
+*┃ 14.* \`.antidelete on/off\` > Anti Delete 🗑️
 *╰━━━━━━━━━━━━━━━╯*
 
-*${BOT_NAME} | Ghost Mode ON*
+*${BOT_NAME} | Cache Limit OFF*
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 ${BOT_NAME} V6.7</h1><h2>Waiting for QR... Refresh</h2></div>`);
+    if (!currentQR) return res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 ${BOT_NAME} V6.8</h1><h2>Waiting for QR... Refresh</h2></div>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:320px;border:5px solid #25D366;border-radius:20px;" /><p>${RENDER_URL}</p></div>`);
 });
 app.listen(PORT, () => console.log('Server:', RENDER_URL));
 
-// V6.7: BRUTE FORCE VIEW ONCE CATCHER
+// V6.8: BRUTE FORCE VIEW ONCE CATCHER
 function findViewOnce(msg) {
-    const str = JSON.stringify(msg); // Nuke method: search the whole JSON
+    const str = JSON.stringify(msg);
     if (str.includes('"viewOnce":true')) {
-        console.log('[VV BRUTE FORCE HIT]');
-        // Try to extract the real media
         if (msg.viewOnceMessageV2 || msg.viewOnceMessageV2Extension) {
             const real = msg.viewOnceMessageV2 || msg.viewOnceMessageV2Extension;
             return { isVV: true, realMsg: real.message, type: Object.keys(real.message)[0] };
         }
         if (msg.imageMessage?.viewOnce) return { isVV: true, realMsg: msg, type: 'imageMessage' };
         if (msg.videoMessage?.viewOnce) return { isVV: true, realMsg: msg, type: 'videoMessage' };
-        if (msg.ephemeralMessage) return findViewOnce(msg.ephemeralMessage.message); // recurse
+        if (msg.ephemeralMessage) return findViewOnce(msg.ephemeralMessage.message);
     }
-    console.log('[NO VV FLAG FOUND]');
     return { isVV: false };
 }
 
@@ -119,7 +105,7 @@ async function startBot() {
         version,
         browser: [BOT_NAME, 'Chrome', '1.0.0'],
         markOnlineOnConnect: true,
-        syncFullHistory: false // V6.7: OFF = Less RAM crash on Render
+        syncFullHistory: false
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -130,14 +116,13 @@ async function startBot() {
             currentQR = qr;
             try {
                 const qrBuffer = await QRCode.toBuffer(qr);
-                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V6.7 QR*\nScan at: ${RENDER_URL}` });
+                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V6.8 QR*\nScan at: ${RENDER_URL}` });
             } catch(e){}
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V6.7 Online\nBaileys v: ${version.join('.')}\nType.menu` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V6.8 Online\nMode: Auto Extract View Once` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
-            console.log('[RESTARTING BOT]');
             startBot();
         }
     });
@@ -165,8 +150,6 @@ async function startBot() {
                 const isFromMe = msg.key.fromMe;
                 const isOwner = from === OWNER_NUMBER || isFromMe;
 
-                console.log('[NEW MSG]', msg.key.id, 'From:', from, 'Type:', getContentType(msg.message)); // V6.7 LOG
-
                 if (antiDelete &&!isGroup) {
                     msgStore.set(msg.key.id, { 
                         msg, from, 
@@ -175,13 +158,22 @@ async function startBot() {
                     });
                 }
 
+                // V6.8: CATCH + AUTO EXTRACT VIEW ONCE IMMEDIATELY
                 const vvCheck = findViewOnce(msg.message);
                 if (vvCheck.isVV &&!isGroup) { 
                     vvStore.set(msg.key.id, { msg, from, sender: jidNormalizedUser(msg.key.participant || from), realMsg: vvCheck.realMsg });
-                    console.log('[VV SAVED V6.7]', msg.key.id, vvCheck.type, 'Cache:', vvStore.size);
-                    await sock.sendMessage(OWNER_NUMBER, { 
-                        text: `👻 *View Once Saved V6.7*\nType: ${vvCheck.type}\nID: \`${msg.key.id}\`\nReply to this with.vv` 
-                    }).catch(()=>{});
+                    console.log('[VV SAVED V6.8]', msg.key.id, vvCheck.type, 'Cache:', vvStore.size);
+                    
+                    // AUTO SEND TO OWNER NOW. NO.vv NEEDED
+                    await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE CAPTURED V6.8*\nFrom: ${(await sock.getName(from)) || from.split('@')[0]}\nType: ${vvCheck.type}\nSending now...` });
+                    
+                    const fakeMsg = { key: msg.key, message: vvCheck.realMsg };
+                    const buffer = await downloadMediaMessage(fakeMsg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
+                    const sendObj = {};
+                    sendObj[vvCheck.type.replace('Message','')] = buffer;
+                    sendObj.mimetype = vvCheck.realMsg[vvCheck.type].mimetype;
+                    if(vvCheck.type === 'imageMessage') sendObj.caption = vvCheck.realMsg[vvCheck.type].caption || '';
+                    await sock.sendMessage(OWNER_NUMBER, sendObj);
                 }
 
                 if (autoReadMessages) await sock.readMessages([msg.key]);
@@ -218,22 +210,16 @@ async function startBot() {
                         await sock.sendMessage(from, { text: '👑 *Owner:* `254769532338`' });
                         break;
                     case '.cache':
-                        await sock.sendMessage(from, { text: `🗂️ *Cache Status*\nAntiDelete: \`${msgStore.size}/${MAX_CACHE}\`\nVV: \`${vvStore.size}/${MAX_VV_CACHE}\`\nBot Uptime: \`${process.uptime()}s\`` });
-                        break;
-                    case '.logs':
-                        const ids = Array.from(vvStore.keys()).slice(-10);
-                        await sock.sendMessage(from, { text: `🧪 *Last 10 VV IDs in Cache:*\n\`\`${ids.join('\n') || 'None'}\`\`` });
+                        await sock.sendMessage(from, { text: `🗂️ *Cache Status*\nAntiDelete: \`${msgStore.size}\`\nVV: \`${vvStore.size}\` *No Limit*\nBot Uptime: \`${Math.floor(process.uptime())}s\`` });
                         break;
                     
-                    case '.vv':
+                    case '.vv': // Backup manual method
                         if (!quotedId) return await sock.sendMessage(from, { text: '❌ Reply to the *View Once* message with.vv' });
-                        console.log('[VV REQUEST V6.7]', quotedId, 'Cache:', vvStore.has(quotedId), 'Size:', vvStore.size);
-                        
                         const vv = vvStore.get(quotedId);
-                        if (!vv) return await sock.sendMessage(from, { text: `❌ View Once not found or expired from cache\nID: \`${quotedId}\`\nCache size: ${vvStore.size}\nType.logs to see saved IDs` });
+                        if (!vv) return await sock.sendMessage(from, { text: `❌ View Once not in cache\nID: \`${quotedId}\`\nCache size: ${vvStore.size}` });
                         
                         const vvType = Object.keys(vv.realMsg)[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE EXPOSED V6.7*\nType: ${vvType}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *MANUAL VV EXTRACT V6.8*\nType: ${vvType}` });
                         
                         const fakeMsg = { key: vv.msg.key, message: vv.realMsg };
                         const buffer = await downloadMediaMessage(fakeMsg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
