@@ -1,15 +1,34 @@
 {
-  "name": "ezed-x-tech-v7",
-  "version": "7.6.0",
+  "name": "ezed-x-tech-bot",
+  "version": "8.3.0",
+  "description": "EZED X TECH WhatsApp Bot V8.3 with AI Tools + Games + Auto View",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "ai",
+    "ezed"
+  ],
+  "author": "EZED X TECH",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.x",
+    "npm": ">=9.x"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.14",
+    "@whiskeysockets/baileys": "^6.7.5",
     "axios": "^1.7.2",
     "express": "^4.19.2",
-    "pino": "^9.3.2",
+    "mathjs": "^11.11.0",
+    "pino": "^8.20.0",
     "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   }
 }
