@@ -29,14 +29,13 @@ let antiDelete = true;
 
 const MAX_CACHE = 200;
 const MAX_VV_CACHE = 300; 
-const msgStore = new Map(); // AntiDelete
-const vvStore = new Map(); //.vv View Once 
+const msgStore = new Map(); 
+const vvStore = new Map(); 
 const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶'];
 
 let currentQR = null;
 let sock;
 
-// Auto cleanup cache
 setInterval(() => {
     if (msgStore.size > MAX_CACHE) {
         const keysToDelete = Array.from(msgStore.keys()).slice(0, msgStore.size - MAX_CACHE);
@@ -48,10 +47,9 @@ setInterval(() => {
     }
 }, 5 * 60 * 1000);
 
-// DECORATED MENU V6.4 +.vv FIXED
 const MENU_TEXT = `
 *╭━━━━━━━━━━━━━━╮*
-*┃ 👑 ${BOT_NAME} V6.4 👑 ┃*
+*┃ 👑 ${BOT_NAME} V6.5 👑 ┃*
 *╰━━━━━━━━━━━━━━╯*
 
 *╭───〔 𝗜𝗡𝗙𝗢 〕───╮*
@@ -86,11 +84,39 @@ const MENU_TEXT = `
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 ${BOT_NAME} V6.4</h1><h2>Waiting for QR... Refresh</h2></div>`);
+    if (!currentQR) return res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 ${BOT_NAME} V6.5</h1><h2>Waiting for QR... Refresh</h2></div>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:320px;border:5px solid #25D366;border-radius:20px;" /><p>${RENDER_URL}</p></div>`);
 });
 app.listen(PORT, () => console.log('Server:', RENDER_URL));
+
+// V6.5: Deep ViewOnce Finder. Digs through all wrappers.
+function findViewOnce(msg) {
+    let current = msg;
+    let depth = 0;
+    while (depth < 5) { // Max 5 layers deep
+        const mtype = getContentType(current);
+        if (!mtype) break;
+        
+        const content = current[mtype];
+        // Case 1: Old imageMessage.viewOnce
+        if ((mtype === 'imageMessage' || mtype === 'videoMessage') && content.viewOnce) {
+            return { isVV: true, realMsg: current, type: mtype };
+        }
+        // Case 2: viewOnceMessageV2 or V2Extension
+        if (mtype === 'viewOnceMessageV2' || mtype === 'viewOnceMessageV2Extension') {
+            return { isVV: true, realMsg: content.message, type: Object.keys(content.message)[0] };
+        }
+        // Case 3: ephemeralMessage wrapper
+        if (mtype === 'ephemeralMessage') {
+            current = content.message;
+            depth++;
+            continue;
+        }
+        break;
+    }
+    return { isVV: false };
+}
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
@@ -113,18 +139,17 @@ async function startBot() {
             currentQR = qr;
             try {
                 const qrBuffer = await QRCode.toBuffer(qr);
-                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V6.4 QR*\nScan at: ${RENDER_URL}` });
+                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V6.5 QR*\nScan at: ${RENDER_URL}` });
             } catch(e){}
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V6.4 Online\nType.menu |.vv to expose View Once` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V6.5 Online\nType.menu |.vv to expose View Once` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
     });
 
-    // STATUS HANDLER
     sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
             if (msg.key.remoteJid === 'status@broadcast' && msg.key.participant &&!msg.key.fromMe) {
@@ -139,7 +164,6 @@ async function startBot() {
         }
     });
 
-    // MAIN HANDLER + CACHE
     sock.ev.on('messages.upsert', async ({ messages }) => {
         try {
             for (const msg of messages) {
@@ -149,7 +173,6 @@ async function startBot() {
                 const isFromMe = msg.key.fromMe;
                 const isOwner = from === OWNER_NUMBER || isFromMe;
 
-                // 1. CACHE FOR ANTIDELETE
                 if (antiDelete &&!isGroup) {
                     msgStore.set(msg.key.id, { 
                         msg, from, 
@@ -158,27 +181,16 @@ async function startBot() {
                     });
                 }
 
-                // 2. CACHE FOR.VV VIEW ONCE 👻 V6.4 FIXED CATCHER
-                const mtype = getContentType(msg.message);
-                let isViewOnce = false;
-                let realMsg = msg.message;
-
-                // WhatsApp 2026: 3 different ViewOnce wrappers
-                if (mtype === 'viewOnceMessageV2' || mtype === 'viewOnceMessageV2Extension') {
-                    realMsg = msg.message[mtype].message;
-                    isViewOnce = true;
-                } else if (mtype === 'imageMessage' && msg.message.imageMessage?.viewOnce) {
-                    isViewOnce = true;
-                } else if (mtype === 'videoMessage' && msg.message.videoMessage?.viewOnce) {
-                    isViewOnce = true;
-                }
-
-                if (isViewOnce &&!isGroup &&!isFromMe) {
-                    vvStore.set(msg.key.id, { msg, from, sender: jidNormalizedUser(msg.key.participant || from), realMsg });
-                    console.log('[VV SAVED V6.4]', msg.key.id, mtype, from);
+                // V6.5: DEEP SCAN FOR VIEW ONCE
+                const vvCheck = findViewOnce(msg.message);
+                if (vvCheck.isVV &&!isGroup &&!isFromMe) {
+                    vvStore.set(msg.key.id, { msg, from, sender: jidNormalizedUser(msg.key.participant || from), realMsg: vvCheck.realMsg });
+                    console.log('[VV SAVED V6.5]', msg.key.id, vvCheck.type, from);
                     await sock.sendMessage(OWNER_NUMBER, { 
-                        text: `👻 *View Once Saved V6.4*\nFrom: ${(await sock.getName(from)) || from.split('@')[0]}\nType: ${Object.keys(realMsg)[0]}\nID: \`${msg.key.id}\`\nReply to this with.vv` 
+                        text: `👻 *View Once Saved V6.5*\nFrom: ${(await sock.getName(from)) || from.split('@')[0]}\nType: ${vvCheck.type}\nID: \`${msg.key.id}\`\nReply to this with.vv` 
                     }).catch(()=>{});
+                } else {
+                    console.log('[NOT VV]', getContentType(msg.message), msg.key.id); // DEBUG: See why it failed
                 }
 
                 if (autoReadMessages) await sock.readMessages([msg.key]);
@@ -218,16 +230,15 @@ async function startBot() {
                         await sock.sendMessage(from, { text: `🗂️ *Cache Status*\nAntiDelete: \`${msgStore.size}/${MAX_CACHE}\`\nVV: \`${vvStore.size}/${MAX_VV_CACHE}\`` });
                         break;
                     
-                    //.VV COMMAND 👻 V6.4 FIXED
                     case '.vv':
-                        if (!quotedId) return await sock.sendMessage(from, { text: '❌ Reply to the *View Once* message with.vv\nNot just type.vv' });
-                        console.log('[VV REQUEST V6.4]', quotedId, 'Cache:', vvStore.has(quotedId));
+                        if (!quotedId) return await sock.sendMessage(from, { text: '❌ Reply to the *View Once* message with.vv' });
+                        console.log('[VV REQUEST V6.5]', quotedId, 'Cache:', vvStore.has(quotedId));
                         
                         const vv = vvStore.get(quotedId);
                         if (!vv) return await sock.sendMessage(from, { text: `❌ View Once not found or expired from cache\nID: \`${quotedId}\`\nCache size: ${vvStore.size}` });
                         
                         const vvType = Object.keys(vv.realMsg)[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE EXPOSED V6.4*\nFrom: ${(await sock.getName(vv.sender)) || vv.sender.split('@')[0]}\nType: ${vvType}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE EXPOSED V6.5*\nFrom: ${(await sock.getName(vv.sender)) || vv.sender.split('@')[0]}\nType: ${vvType}` });
                         
                         const fakeMsg = { key: vv.msg.key, message: vv.realMsg };
                         const buffer = await downloadMediaMessage(fakeMsg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
@@ -238,7 +249,6 @@ async function startBot() {
                         await sock.sendMessage(OWNER_NUMBER, sendObj);
                         break;
 
-                    // AUTO TOGGLES
                     case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 Auto Recording: `ON`' }); break;
                     case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 Auto Recording: `OFF`' }); break;
                     case '.atype on': autoTyping = true; await sock.sendMessage(from, { text: '⌨️ Auto Typing: `ON`' }); break;
@@ -259,7 +269,6 @@ async function startBot() {
         } catch(e) { console.log('Main error:', e.message); }
     });
 
-    // ANTI-DELETE EXPOSER
     sock.ev.on('messages.update', async (updates) => {
         try {
             for (const { key, update } of updates) {
