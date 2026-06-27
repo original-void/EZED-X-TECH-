@@ -4,8 +4,7 @@ const {
     DisconnectReason, 
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
-    jidNormalizedUser,
-    proto
+    jidNormalizedUser
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
@@ -16,6 +15,7 @@ const PORT = process.env.PORT || 3000;
 const BOT_NAME = 'EZED X TECH';
 const OWNER_NUMBER = '254769532338@s.whatsapp.net';
 const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
+const RENDER_URL = 'https://ezed-x-tech-2.onrender.com'; // Your link
 
 let autoRecording = true;
 let autoTyping = true;
@@ -33,18 +33,36 @@ let sock;
 
 const MENU_TEXT =
 '*================================*\n' +
-'* [ EZED X TECH BOT V5.3 ] *\n' +
+'* [ EZED X TECH BOT V5.5 ] *\n' +
 '*================================*\n' +
-'*.antidelete on/off> Anti Delete V5.3\n' +
+'*.antidelete on/off> Anti Delete\n' +
+'*.aread on/off > Auto Read\n' +
+'*.areact on/off> Auto React\n' +
 '*================================*';
 
-app.get('/', (req, res) => res.send('<h1>' + BOT_NAME + ' is running</h1><p><a href="/qr">Open QR</a></p>'));
-app.get('/qr', async (req, res) => {
-    if (!currentQR) return res.send('<h2>No QR yet. Wait 10s and refresh.</h2>');
+// QR CODE ON HOMEPAGE ✅
+app.get('/', async (req, res) => {
+    if (!currentQR) {
+        return res.send(`
+        <div style="font-family:sans-serif;text-align:center;padding:40px;">
+            <h1>🤖 ${BOT_NAME} V5.5</h1>
+            <h2>Waiting for QR...</h2>
+            <p>Refresh this page in 5 seconds</p>
+        </div>
+        `);
+    }
     const qrImage = await QRCode.toDataURL(currentQR);
-    res.send('<h1>Scan ' + BOT_NAME + ' QR</h1><img src="' + qrImage + '" style="width:300px;" />');
+    res.send(`
+    <div style="font-family:sans-serif;text-align:center;padding:40px;">
+        <h1>🤖 Scan ${BOT_NAME} QR</h1>
+        <img src="${qrImage}" style="width:320px;border:5px solid #25D366;border-radius:20px;" />
+        <p>Open WhatsApp > Linked Devices > Link a Device</p>
+        <p><b>Owner:</b> 254769532338</p>
+    </div>
+    `);
 });
-app.listen(PORT, () => console.log('Web server on port ' + PORT));
+
+app.listen(PORT, () => console.log('Web server on port ' + PORT + ' | ' + RENDER_URL));
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
@@ -56,7 +74,7 @@ async function startBot() {
         version,
         browser: [BOT_NAME, 'Chrome', '1.0.0'],
         markOnlineOnConnect: true,
-        syncFullHistory: false
+        syncFullHistory: true
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -65,15 +83,16 @@ async function startBot() {
         const { connection, lastDisconnect, qr } = update;
         if (qr) {
             currentQR = qr;
+            console.log('QR Generated. Go to:', RENDER_URL);
             try {
                 const qrBuffer = await QRCode.toBuffer(qr);
-                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: '*' + BOT_NAME + ' QR Code*' });
+                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: '*' + BOT_NAME + ' QR Code*\nScan at: ' + RENDER_URL });
             } catch (e) {}
         }
         if (connection === 'open') {
             currentQR = null;
             console.log(BOT_NAME + ' Connected');
-            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' V5.3 is online' });
+            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' V5.5 is online\nDashboard: ' + RENDER_URL });
         } else if (connection === 'close') {
             if (lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
         }
@@ -83,50 +102,39 @@ async function startBot() {
     sock.ev.on('messages.upsert', async (m) => {
         const messages = m.messages;
         for (const msg of messages) {
-            if (!msg.key || msg.key.remoteJid!== 'status@broadcast') continue;
-            if (msg.key.fromMe) continue;
-            if (!msg.key.participant) continue;
-            try {
-                if (autoViewStatus) await sock.readMessages([msg.key]);
-                if (autoLikeStatus) {
-                    const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
-                    await sock.sendMessage(msg.key.participant, { text: randomEmoji + ' *EZED X TECH* liked your status' });
-                }
-            } catch (e) {}
+            if (msg.key.remoteJid === 'status@broadcast' && msg.key.participant &&!msg.key.fromMe) {
+                try {
+                    if (autoViewStatus) await sock.readMessages([msg.key]);
+                    if (autoLikeStatus) {
+                        const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
+                        await sock.sendMessage(msg.key.participant, { text: randomEmoji + ' *EZED X TECH* liked your status' });
+                    }
+                } catch (e) {}
+            }
         }
     });
 
-    // MAIN HANDLER V5.3
+    // MAIN HANDLER
     sock.ev.on('messages.upsert', async (m) => {
-        const messages = m.messages;
-        for (const msg of messages) {
-            if (!msg.message) continue;
-            if (msg.key.remoteJid === 'status@broadcast') continue;
-
+        for (const msg of m.messages) {
+            if (!msg.message || msg.key.remoteJid === 'status@broadcast') continue;
             const from = msg.key.remoteJid;
-            const sender = jidNormalizedUser(msg.key.participant || from);
-            const isFromMe = msg.key.fromMe;
             const isGroup = from.endsWith('@g.us');
-            const isOwner = (sender === OWNER_NUMBER) || isFromMe;
+            const isFromMe = msg.key.fromMe;
+            const isOwner = from === OWNER_NUMBER || isFromMe;
 
-            // CACHE ALL DMS BOTH SIDES ✅
             if (antiDelete &&!isGroup) {
-                msgStore.set(msg.key.id, { msg, from, sender });
+                msgStore.set(msg.key.id, { msg, from, sender: jidNormalizedUser(msg.key.participant || from) });
                 if (msgStore.size > 500) msgStore.delete(msgStore.keys().next().value);
-                console.log('Cached msg:', msg.key.id, isFromMe? '[You]' : '[Them]');
+                console.log('[CACHE] ', msg.key.id, isFromMe? '[You]' : '[Them]');
             }
 
             if (autoReadMessages) await sock.readMessages([msg.key]);
-
             if (autoReactDM &&!isFromMe &&!isGroup) {
-                try {
-                    const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
-                    await sock.sendMessage(from, { react: { text: randomEmoji, key: msg.key } });
-                } catch (e) {}
+                await sock.sendMessage(from, { react: { text: REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)], key: msg.key } }).catch(()=>{});
             }
 
             if (!isOwner) continue;
-            
             if (autoTyping) await sock.sendPresenceUpdate('composing', from);
             if (autoRecording) await sock.sendPresenceUpdate('recording', from);
 
@@ -166,14 +174,14 @@ async function startBot() {
                 case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `OFF`' }); break;
                 case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 Auto React DMs: `ON`' }); break;
                 case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 Auto React DMs: `OFF`' }); break;
-                case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ AntiDelete V5.3: `ON`' }); break;
+                case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `ON`' }); break;
                 case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `OFF`' }); break;
             }
             setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
         }
     });
 
-    // V5.3 ANTI-DELETE LISTENER ✅ THIS IS THE FIX
+    // ANTI-DELETE LISTENER
     sock.ev.on('messages.update', async (updates) => {
         for (const { key, update } of updates) {
             if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
@@ -181,31 +189,11 @@ async function startBot() {
                 if (stored) {
                     const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
                     await sock.sendMessage(OWNER_NUMBER, { 
-                        text: `🗑️ *ANTIDELETE ALERT V5.3*\n\n*From:* ${name}\n*Time:* ${new Date().toLocaleTimeString('en-KE')}\n` 
+                        text: `🗑️ *ANTIDELETE ALERT*\n\n*From:* ${name}\n*Time:* ${new Date().toLocaleTimeString('en-KE')}\n` 
                     });
-                    await sock.sendMessage(OWNER_NUMBER, stored.msg.message); // Resend
-                    console.log('AntiDelete triggered V5.3:', name, key.id);
-                } else {
-                    console.log('AntiDelete: Message not cached:', key.id);
+                    await sock.sendMessage(OWNER_NUMBER, stored.msg.message);
+                    console.log('[ANTIDELETE HIT]', key.id);
                 }
-            }
-        }
-    });
-
-    // V5.3 DELETE EVENT LISTENER ✅ Backup for new WhatsApp
-    sock.ev.on('messages.delete', async (m) => {
-        if (!antiDelete) return;
-        const keys = m.keys || [];
-        for (const key of keys) {
-            if (key.remoteJid?.endsWith('@g.us')) continue;
-            const stored = msgStore.get(key.id);
-            if (stored) {
-                const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
-                await sock.sendMessage(OWNER_NUMBER, { 
-                    text: `🗑️ *ANTIDELETE ALERT V5.3 [DELETE EVENT]*\n\n*From:* ${name}\n` 
-                });
-                await sock.sendMessage(OWNER_NUMBER, stored.msg.message);
-                console.log('AntiDelete triggered V5.3 DELETE:', name, key.id);
             }
         }
     });
