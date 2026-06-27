@@ -28,32 +28,38 @@ let autoReactDM = false;
 let antiDelete = true;
 
 const MAX_CACHE = 200;
-const msgStore = new Map(); // For AntiDelete
-const vvStore = new Map(); // For.vv View Once 
+const MAX_VV_CACHE = 300; // Increased for VV
+const msgStore = new Map(); // AntiDelete
+const vvStore = new Map(); //.vv View Once 
 const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶'];
 
 let currentQR = null;
 let sock;
 
+// Auto cleanup cache
 setInterval(() => {
     if (msgStore.size > MAX_CACHE) {
         const keysToDelete = Array.from(msgStore.keys()).slice(0, msgStore.size - MAX_CACHE);
         keysToDelete.forEach(k => msgStore.delete(k));
     }
+    if (vvStore.size > MAX_VV_CACHE) {
+        const keysToDelete = Array.from(vvStore.keys()).slice(0, vvStore.size - MAX_VV_CACHE);
+        keysToDelete.forEach(k => vvStore.delete(k));
+    }
 }, 5 * 60 * 1000);
 
-// DECORATED MENU V6.3 +.vv
+// DECORATED MENU V6.3a +.vv
 const MENU_TEXT = `
 *╭━━━━━━━━━━━━━━╮*
-*┃ 👑 ${BOT_NAME} V6.3 👑 ┃*
+*┃ 👑 ${BOT_NAME} V6.3a 👑 ┃*
 *╰━━━━━━━━━━━━━━╯*
 
 *╭───〔 𝗜𝗡𝗙𝗢 〕───╮*
 *┃ 📛 Bot:* ${BOT_NAME}
 *┃ ⚡ Status:* \`Online ✅\`
 *┃ 🛡️ AntiDelete:* \`${antiDelete? 'ON' : 'OFF'}\`
-*┃ 🗂️ Cache:* \`${msgStore.size}/${MAX_CACHE}\`
-*┃ 👻 VV Cache:* \`${vvStore.size}\`
+*┃ 🗂️ AD Cache:* \`${msgStore.size}/${MAX_CACHE}\`
+*┃ 👻 VV Cache:* \`${vvStore.size}/${MAX_VV_CACHE}\`
 *╰━━━━━━━━━━━━╯*
 
 *╭───〔 𝗚𝗘𝗡𝗘𝗥𝗔𝗟 〕───╮*
@@ -63,7 +69,7 @@ const MENU_TEXT = `
 *┃ 4.* \`.jid\` > Get chat ID 🆔
 *┃ 5.* \`.owner\` > Show owner 👑
 *┃ 6.* \`.cache\` > Check cache size 🗂️
-*┃ 7.* \`.vv\` > Expose View Once 👻
+*┃ 7.* \`.vv\` > Expose View Once 👻 *Reply to VV*
 *╰━━━━━━━━━━━━╯*
 
 *╭───〔 𝗔𝗨𝗧𝗢 𝗙𝗘𝗔𝗧𝗨𝗥𝗘𝗦 〕───╮*
@@ -80,7 +86,7 @@ const MENU_TEXT = `
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 ${BOT_NAME} V6.3</h1><h2>Waiting for QR... Refresh</h2></div>`);
+    if (!currentQR) return res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 ${BOT_NAME} V6.3a</h1><h2>Waiting for QR... Refresh</h2></div>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;font-family:sans-serif;"><h1>🤖 Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:320px;border:5px solid #25D366;border-radius:20px;" /><p>${RENDER_URL}</p></div>`);
 });
@@ -107,12 +113,12 @@ async function startBot() {
             currentQR = qr;
             try {
                 const qrBuffer = await QRCode.toBuffer(qr);
-                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V6.3 QR*\nScan at: ${RENDER_URL}` });
+                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V6.3a QR*\nScan at: ${RENDER_URL}` });
             } catch(e){}
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V6.3 Online\nType.menu |.vv for View Once` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V6.3a Online\nType.menu |.vv to expose View Once` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
@@ -152,12 +158,12 @@ async function startBot() {
                     });
                 }
 
-                // 2. CACHE FOR.VV VIEW ONCE 👻
+                // 2. CACHE FOR.VV VIEW ONCE 👻 DEBUG LOG ADDED
                 const mtype = getContentType(msg.message);
                 if (msg.message[mtype]?.viewOnce &&!isGroup) {
                     vvStore.set(msg.key.id, { msg, from, sender: jidNormalizedUser(msg.key.participant || from) });
-                    if (vvStore.size > 100) vvStore.delete(vvStore.keys().next().value);
-                    await sock.sendMessage(OWNER_NUMBER, { text: `👻 *View Once Saved*\nFrom: ${(await sock.getName(from)) || from.split('@')[0]}\nType: ${mtype}\nUse.vv to open it anytime` }).catch(()=>{});
+                    console.log('[VV SAVED]', msg.key.id, mtype, from); // DEBUG
+                    await sock.sendMessage(OWNER_NUMBER, { text: `👻 *View Once Saved*\nFrom: ${(await sock.getName(from)) || from.split('@')[0]}\nType: ${mtype}\nID: \`${msg.key.id}\`\nReply to this with.vv` }).catch(()=>{});
                 }
 
                 if (autoReadMessages) await sock.readMessages([msg.key]);
@@ -171,7 +177,6 @@ async function startBot() {
 
                 const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
                 const command = text.toLowerCase().trim();
-                const quoted = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
                 const quotedId = msg.message.extendedTextMessage?.contextInfo?.stanzaId;
 
                 switch (command) {
@@ -195,14 +200,16 @@ async function startBot() {
                         await sock.sendMessage(from, { text: '👑 *Owner:* `254769532338`' });
                         break;
                     case '.cache':
-                        await sock.sendMessage(from, { text: `🗂️ *Cache Status*\nAntiDelete: \`${msgStore.size}/${MAX_CACHE}\`\nVV: \`${vvStore.size}\`` });
+                        await sock.sendMessage(from, { text: `🗂️ *Cache Status*\nAntiDelete: \`${msgStore.size}/${MAX_CACHE}\`\nVV: \`${vvStore.size}/${MAX_VV_CACHE}\`` });
                         break;
                     
-                    //.VV COMMAND 👻 NEW
+                    //.VV COMMAND 👻 FIXED
                     case '.vv':
-                        if (!quotedId) return await sock.sendMessage(from, { text: '❌ Reply to the *View Once* message with.vv' });
+                        if (!quotedId) return await sock.sendMessage(from, { text: '❌ Reply to the *View Once* message with.vv\nNot just type.vv' });
+                        console.log('[VV REQUEST]', quotedId, 'Cache:', vvStore.has(quotedId)); // DEBUG
+                        
                         const vv = vvStore.get(quotedId);
-                        if (!vv) return await sock.sendMessage(from, { text: '❌ View Once not found or expired from cache' });
+                        if (!vv) return await sock.sendMessage(from, { text: `❌ View Once not found or expired from cache\nID: \`${quotedId}\`\nCache size: ${vvStore.size}` });
                         
                         const vvType = getContentType(vv.msg.message);
                         await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE EXPOSED*\nFrom: ${(await sock.getName(vv.sender)) || vv.sender.split('@')[0]}\nType: ${vvType}` });
