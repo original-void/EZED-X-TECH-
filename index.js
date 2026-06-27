@@ -5,7 +5,8 @@ const {
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
     jidNormalizedUser,
-    proto
+    proto,
+    downloadContentFromMessage
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
@@ -21,10 +22,10 @@ const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 let autoRecording = true;
 let autoTyping = true;
 let autoViewStatus = true;
-let autoLikeStatus = true; // Auto DM Status with emoji
-let autoReadMessages = false; // Auto read DMs both sides
-let autoReactDM = false; // Auto react to DMs
-let antiDelete = false; // Anti delete
+let autoLikeStatus = true;
+let autoReadMessages = false;
+let autoReactDM = false;
+let antiDelete = false;
 
 // CACHE FOR ANTI-DELETE
 const msgStore = new Map();
@@ -37,34 +38,17 @@ let sock;
 
 const MENU_TEXT =
 '*================================*\n' +
-'* [ EZED X TECH BOT V5.1 ] *\n' +
+'* [ EZED X TECH BOT V5.2 ] *\n' +
 '*================================*\n' +
-'*\n' +
 '* *👑 OWNER PANEL* \n' +
-'*\n' +
-'* *--- [ COMMANDS ] ---*\n' +
-'*\n' +
-'* 1..menu > Show this panel\n' +
-'* 2..ping > Check bot speed ⚡\n' +
-'* 3..time > Kenya time 🕒 \n' +
-'* 4..jid > Get chat ID\n' +
-'* 5..owner > Show owner\n' +
-'*\n' +
 '* *--- [ AUTO ] ---*\n' +
-'* 6..arec on/off > Auto Recording\n' +
-'* 7..atype on/off> Auto Typing\n' +
-'* 8..aview on/off> Auto View Status\n' +
-'* 9..alike on/off> Auto DM Status\n' +
-'* 10..aread on/off> Auto Read All DMs\n' +
-'* 11..areact on/off> Auto React DMs\n' +
-'* 12..antidelete on/off> Anti Delete\n' +
-'*\n' +
-'* *--- [ STATUS ] ---*\n' +
-'* Mode : Owner Only\n' +
-'* Status : Online ✅\n' +
-'*\n' +
-'*================================*\n' +
-'* Powered by EZED X TECH *\n' +
+'*.arec on/off > Auto Recording\n' +
+'*.atype on/off> Auto Typing\n' +
+'*.aview on/off> Auto View Status\n' +
+'*.alike on/off> Auto DM Status\n' +
+'*.aread on/off> Auto Read All DMs\n' +
+'*.areact on/off> Auto React DMs\n' +
+'*.antidelete on/off> Anti Delete V5.2\n' +
 '*================================*';
 
 app.get('/', (req, res) => res.send('<h1>' + BOT_NAME + ' is running</h1><p><a href="/qr">Open QR</a></p>'));
@@ -102,39 +86,30 @@ async function startBot() {
         if (connection === 'open') {
             currentQR = null;
             console.log(BOT_NAME + ' Connected');
-            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' V5.1 is online. Ghost Mode: ON' });
+            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' V5.2 is online. Ghost Mode: ON' });
         } else if (connection === 'close') {
             if (lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
         }
     });
 
-    // AUTO VIEW + AUTO DM STATUS WITH RANDOM EMOJI ✅
+    // AUTO VIEW + AUTO DM STATUS
     sock.ev.on('messages.upsert', async (m) => {
         const messages = m.messages;
         for (const msg of messages) {
             if (!msg.key || msg.key.remoteJid!== 'status@broadcast') continue;
             if (msg.key.fromMe) continue;
             if (!msg.key.participant) continue;
-
             try {
-                if (autoViewStatus) {
-                    await sock.readMessages([msg.key]);
-                    console.log('Viewed status from:', msg.key.participant);
-                }
+                if (autoViewStatus) await sock.readMessages([msg.key]);
                 if (autoLikeStatus) {
                     const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
-                    await sock.sendMessage(msg.key.participant, { 
-                        text: randomEmoji + ' *EZED X TECH* liked your status' 
-                    });
-                    console.log('DMd status from:', msg.key.participant, 'with', randomEmoji);
+                    await sock.sendMessage(msg.key.participant, { text: randomEmoji + ' *EZED X TECH* liked your status' });
                 }
-            } catch (e) {
-                console.log('Status error:', e.message);
-            }
+            } catch (e) {}
         }
     });
 
-    // MAIN HANDLER: READ, REACT, CACHE, ANTIDELETE ✅ V5.1
+    // MAIN HANDLER V5.2
     sock.ev.on('messages.upsert', async (m) => {
         const messages = m.messages;
         for (const msg of messages) {
@@ -147,51 +122,44 @@ async function startBot() {
             const isGroup = from.endsWith('@g.us');
             const isOwner = (sender === OWNER_NUMBER) || isFromMe;
 
-            // 1. ANTI-DELETE CATCHER ✅ protocolMessage type:0 = delete for everyone
-            if (antiDelete && msg.message.protocolMessage && msg.message.protocolMessage.type === proto.Message.ProtocolMessage.Type.REVOKE) {
-                const deletedKeyId = msg.message.protocolMessage.key.id;
-                const stored = msgStore.get(deletedKeyId);
-                if (stored &&!from.endsWith('@g.us')) {
-                    const name = await sock.getName(sender) || sender.split('@')[0];
-                    await sock.sendMessage(OWNER_NUMBER, { 
-                        text: `🗑️ *ANTIDELETE ALERT*\n\n*From:* ${name}\n*Chat:* ${stored.from}\n*Time:* ${new Date().toLocaleTimeString('en-KE')}\n\n*Deleted Message:*`, 
-                        quoted: stored.msg 
-                    });
-                    console.log('AntiDelete triggered via protocol:', name, deletedKeyId);
+            // 1. ANTI-DELETE CATCHER V5.2 ✅ type 0 or 3
+            if (antiDelete && msg.message.protocolMessage) {
+                const pType = msg.message.protocolMessage.type;
+                if (pType === proto.Message.ProtocolMessage.Type.REVOKE || pType === 3) {
+                    const deletedKeyId = msg.message.protocolMessage.key.id;
+                    const stored = msgStore.get(deletedKeyId);
+                    if (stored &&!from.endsWith('@g.us')) {
+                        const name = await sock.getName(sender) || sender.split('@')[0];
+                        await sock.sendMessage(OWNER_NUMBER, { 
+                            text: `🗑️ *ANTIDELETE ALERT*\n\n*From:* ${name}\n*Time:* ${new Date().toLocaleTimeString('en-KE')}\n` 
+                        });
+                        await sock.sendMessage(OWNER_NUMBER, stored.msg.message); // RESEND, not quote
+                        console.log('AntiDelete triggered V5.2:', name, deletedKeyId);
+                    }
+                    continue;
                 }
-                continue; // Stop here so it doesn't read the delete notice
             }
 
-            // 2. CACHE MESSAGE FOR ANTI-DELETE ✅ Save all types from others only
-            if (antiDelete &&!isGroup &&!isFromMe) {
+            // 2. CACHE MESSAGE FOR ANTI-DELETE ✅ Cache BOTH sides now
+            if (antiDelete &&!isGroup) {
                 msgStore.set(msg.key.id, { msg, from });
-                if (msgStore.size > 200) msgStore.delete(msgStore.keys().next().value); // Cache 200
-                console.log('Cached msg:', msg.key.id);
+                if (msgStore.size > 500) msgStore.delete(msgStore.keys().next().value); // Cache 500
+                console.log('Cached msg:', msg.key.id, isFromMe? '[You]' : '[Them]');
             }
 
-            // 3. AUTO READ BOTH SIDES ✅ You + Them
-            if (autoReadMessages) {
-                await sock.readMessages([msg.key]);
-                console.log('Auto read:', from, isFromMe? '[You]' : '[Them]');
-            }
+            // 3. AUTO READ BOTH SIDES ✅
+            if (autoReadMessages) await sock.readMessages([msg.key]);
 
             // 4. AUTO REACT TO DM FROM OTHERS ✅
             if (autoReactDM &&!isFromMe &&!isGroup) {
                 try {
                     const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
-                    await sock.sendMessage(from, { 
-                        react: { text: randomEmoji, key: msg.key } 
-                    });
-                    console.log('Auto reacted to:', from, 'with', randomEmoji);
-                } catch (e) {
-                    console.log('React error:', e.message);
-                }
+                    await sock.sendMessage(from, { react: { text: randomEmoji, key: msg.key } });
+                } catch (e) {}
             }
 
-            // OWNER ONLY COMMANDS
             if (!isOwner) continue;
             
-            // AUTO TYPING + RECORDING
             if (autoTyping) await sock.sendPresenceUpdate('composing', from);
             if (autoRecording) await sock.sendPresenceUpdate('recording', from);
 
@@ -199,19 +167,14 @@ async function startBot() {
             const command = text.toLowerCase().trim();
 
             switch (command) {
-                case '.menu':
-                case 'menu':
-                case '.help':
-                    await sock.sendMessage(from, { 
-                        image: { url: MENU_IMAGE_URL }, 
-                        caption: MENU_TEXT 
-                    });
+                case '.menu': case 'menu': case '.help':
+                    await sock.sendMessage(from, { image: { url: MENU_IMAGE_URL }, caption: MENU_TEXT });
                     break;
                 case '.ping':
                     const start = Date.now();
                     await sock.sendMessage(from, { text: '🏓 Pinging...' });
                     const speed = Date.now() - start;
-                    await sock.sendMessage(from, { text: '🏓 *Pong!* \n⚡ *Speed:* `' + speed + 'ms`\n*' + BOT_NAME + '* is online' });
+                    await sock.sendMessage(from, { text: '🏓 *Pong!* \n⚡ *Speed:* `' + speed + 'ms`' });
                     break;
                 case '.time':
                     const now = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
@@ -224,7 +187,6 @@ async function startBot() {
                     await sock.sendMessage(from, { text: '👑 *Owner:* `254769532338`' });
                     break;
 
-                // AUTO TOGGLES
                 case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 Auto Recording: `ON`' }); break;
                 case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 Auto Recording: `OFF`' }); break;
                 case '.atype on': autoTyping = true; await sock.sendMessage(from, { text: '⌨️ Auto Typing: `ON`' }); break;
@@ -237,10 +199,9 @@ async function startBot() {
                 case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `OFF`' }); break;
                 case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 Auto React DMs: `ON`' }); break;
                 case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 Auto React DMs: `OFF`' }); break;
-                case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `ON`' }); break;
+                case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ AntiDelete V5.2: `ON`' }); break;
                 case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `OFF`' }); break;
             }
-            // Stop presence after 3s
             setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
         }
     });
