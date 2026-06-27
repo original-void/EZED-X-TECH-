@@ -4,7 +4,8 @@ const {
     DisconnectReason, 
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
-    jidNormalizedUser
+    jidNormalizedUser,
+    downloadMediaMessage
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const QRCode = require('qrcode');
@@ -13,56 +14,20 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const BOT_NAME = 'EZED X TECH';
-const OWNER_NUMBER = '254769532338@s.whatsapp.net';
-const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
-const RENDER_URL = 'https://ezed-x-tech-2.onrender.com'; // Your link
+const OWNER_NUMBER = '254769532338@s.whatsapp.net'; // Your DM
+const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
 
-let autoRecording = true;
-let autoTyping = true;
-let autoViewStatus = true;
-let autoLikeStatus = true;
-let autoReadMessages = false;
-let autoReactDM = false;
-let antiDelete = false;
-
-const msgStore = new Map();
-const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶'];
-
+let antiDelete = true; // ON by default
+const msgStore = new Map(); // Cache everything
 let currentQR = null;
 let sock;
 
-const MENU_TEXT =
-'*================================*\n' +
-'* [ EZED X TECH BOT V5.5 ] *\n' +
-'*================================*\n' +
-'*.antidelete on/off> Anti Delete\n' +
-'*.aread on/off > Auto Read\n' +
-'*.areact on/off> Auto React\n' +
-'*================================*';
-
-// QR CODE ON HOMEPAGE ✅
 app.get('/', async (req, res) => {
-    if (!currentQR) {
-        return res.send(`
-        <div style="font-family:sans-serif;text-align:center;padding:40px;">
-            <h1>🤖 ${BOT_NAME} V5.5</h1>
-            <h2>Waiting for QR...</h2>
-            <p>Refresh this page in 5 seconds</p>
-        </div>
-        `);
-    }
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V6.0</h1><h2>Waiting for QR... Refresh</h2>`);
     const qrImage = await QRCode.toDataURL(currentQR);
-    res.send(`
-    <div style="font-family:sans-serif;text-align:center;padding:40px;">
-        <h1>🤖 Scan ${BOT_NAME} QR</h1>
-        <img src="${qrImage}" style="width:320px;border:5px solid #25D366;border-radius:20px;" />
-        <p>Open WhatsApp > Linked Devices > Link a Device</p>
-        <p><b>Owner:</b> 254769532338</p>
-    </div>
-    `);
+    res.send(`<h1>🤖 Scan ${BOT_NAME} QR</h1><img src="${qrImage}" style="width:320px;" /><p>https://ezed-x-tech-2.onrender.com</p>`);
 });
-
-app.listen(PORT, () => console.log('Web server on port ' + PORT + ' | ' + RENDER_URL));
+app.listen(PORT, () => console.log('Server:', RENDER_URL));
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
@@ -74,128 +39,96 @@ async function startBot() {
         version,
         browser: [BOT_NAME, 'Chrome', '1.0.0'],
         markOnlineOnConnect: true,
-        syncFullHistory: true
+        syncFullHistory: true // CRITICAL FOR DELETE
     });
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
+        const { connection, qr } = update;
         if (qr) {
             currentQR = qr;
-            console.log('QR Generated. Go to:', RENDER_URL);
-            try {
-                const qrBuffer = await QRCode.toBuffer(qr);
-                await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: '*' + BOT_NAME + ' QR Code*\nScan at: ' + RENDER_URL });
-            } catch (e) {}
+            const qrBuffer = await QRCode.toBuffer(qr);
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V6.0*\nScan at: ${RENDER_URL}` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            console.log(BOT_NAME + ' Connected');
-            await sock.sendMessage(OWNER_NUMBER, { text: '✅ ' + BOT_NAME + ' V5.5 is online\nDashboard: ' + RENDER_URL });
-        } else if (connection === 'close') {
-            if (lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V6.0 Online\n🛡️ AntiDelete: ON\nDMs deleted messages will be exposed here.` });
+        } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
+            startBot();
         }
     });
 
-    // STATUS HANDLER
-    sock.ev.on('messages.upsert', async (m) => {
-        const messages = m.messages;
+    // 1. CACHE ALL INCOMING DMS BOTH SIDES ✅
+    sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
-            if (msg.key.remoteJid === 'status@broadcast' && msg.key.participant &&!msg.key.fromMe) {
-                try {
-                    if (autoViewStatus) await sock.readMessages([msg.key]);
-                    if (autoLikeStatus) {
-                        const randomEmoji = REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)];
-                        await sock.sendMessage(msg.key.participant, { text: randomEmoji + ' *EZED X TECH* liked your status' });
-                    }
-                } catch (e) {}
-            }
-        }
-    });
-
-    // MAIN HANDLER
-    sock.ev.on('messages.upsert', async (m) => {
-        for (const msg of m.messages) {
             if (!msg.message || msg.key.remoteJid === 'status@broadcast') continue;
             const from = msg.key.remoteJid;
-            const isGroup = from.endsWith('@g.us');
-            const isFromMe = msg.key.fromMe;
-            const isOwner = from === OWNER_NUMBER || isFromMe;
+            if (from.endsWith('@g.us')) continue; // Only DMs
 
-            if (antiDelete &&!isGroup) {
-                msgStore.set(msg.key.id, { msg, from, sender: jidNormalizedUser(msg.key.participant || from) });
-                if (msgStore.size > 500) msgStore.delete(msgStore.keys().next().value);
-                console.log('[CACHE] ', msg.key.id, isFromMe? '[You]' : '[Them]');
-            }
-
-            if (autoReadMessages) await sock.readMessages([msg.key]);
-            if (autoReactDM &&!isFromMe &&!isGroup) {
-                await sock.sendMessage(from, { react: { text: REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)], key: msg.key } }).catch(()=>{});
-            }
-
-            if (!isOwner) continue;
-            if (autoTyping) await sock.sendPresenceUpdate('composing', from);
-            if (autoRecording) await sock.sendPresenceUpdate('recording', from);
-
-            const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
-            const command = text.toLowerCase().trim();
-
-            switch (command) {
-                case '.menu': case 'menu': case '.help':
-                    await sock.sendMessage(from, { image: { url: MENU_IMAGE_URL }, caption: MENU_TEXT });
-                    break;
-                case '.ping':
-                    const start = Date.now();
-                    await sock.sendMessage(from, { text: '🏓 Pinging...' });
-                    const speed = Date.now() - start;
-                    await sock.sendMessage(from, { text: '🏓 *Pong!* \n⚡ *Speed:* `' + speed + 'ms`' });
-                    break;
-                case '.time':
-                    const now = new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' });
-                    await sock.sendMessage(from, { text: '🕒 *Kenya Time:* `' + now + '`' });
-                    break;
-                case '.jid':
-                    await sock.sendMessage(from, { text: '🆔 *Chat JID:* `' + from + '`' });
-                    break;
-                case '.owner':
-                    await sock.sendMessage(from, { text: '👑 *Owner:* `254769532338`' });
-                    break;
-
-                case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 Auto Recording: `ON`' }); break;
-                case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 Auto Recording: `OFF`' }); break;
-                case '.atype on': autoTyping = true; await sock.sendMessage(from, { text: '⌨️ Auto Typing: `ON`' }); break;
-                case '.atype off': autoTyping = false; await sock.sendMessage(from, { text: '⌨️ Auto Typing: `OFF`' }); break;
-                case '.aview on': autoViewStatus = true; await sock.sendMessage(from, { text: '👀 Auto View Status: `ON`' }); break;
-                case '.aview off': autoViewStatus = false; await sock.sendMessage(from, { text: '👀 Auto View Status: `OFF`' }); break;
-                case '.alike on': autoLikeStatus = true; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `ON`' }); break;
-                case '.alike off': autoLikeStatus = false; await sock.sendMessage(from, { text: '❤️ Auto DM Status: `OFF`' }); break;
-                case '.aread on': autoReadMessages = true; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `ON`' }); break;
-                case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 Auto Read All DMs: `OFF`' }); break;
-                case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 Auto React DMs: `ON`' }); break;
-                case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 Auto React DMs: `OFF`' }); break;
-                case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `ON`' }); break;
-                case '.antidelete off': antiDelete = false; await sock.sendMessage(from, { text: '🛡️ AntiDelete: `OFF`' }); break;
-            }
-            setTimeout(() => sock.sendPresenceUpdate('available', from), 3000);
+            // Save message + sender + time
+            msgStore.set(msg.key.id, { 
+                msg, 
+                from, 
+                sender: jidNormalizedUser(msg.key.participant || from),
+                timestamp: msg.messageTimestamp
+            });
+            if (msgStore.size > 1000) msgStore.delete(msgStore.keys().next().value); // Keep 1000 msgs
+            console.log('[CACHED]', msg.key.id, msg.key.fromMe? '[You]' : '[Them]');
         }
     });
 
-    // ANTI-DELETE LISTENER
+    // 2. ANTI-DELETE EXPOSER ✅ THIS IS THE MAIN ONE
     sock.ev.on('messages.update', async (updates) => {
         for (const { key, update } of updates) {
+            // update.message === null = WhatsApp delete signal
             if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
                 const stored = msgStore.get(key.id);
                 if (stored) {
                     const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
+                    const time = new Date(stored.timestamp * 1000).toLocaleTimeString('en-KE');
+                    const type = Object.keys(stored.msg.message)[0];
+
+                    // EXPOSE IN YOUR DM
                     await sock.sendMessage(OWNER_NUMBER, { 
-                        text: `🗑️ *ANTIDELETE ALERT*\n\n*From:* ${name}\n*Time:* ${new Date().toLocaleTimeString('en-KE')}\n` 
+                        text: `🗑️ *DELETED MESSAGE EXPOSED*\n\n*From:* ${name} \`${stored.sender}\`\n*Type:* ${type}\n*Time:* ${time}\n*Status:* ${stored.msg.key.fromMe? 'You deleted' : 'They deleted'}\n\n*Content below:*` 
                     });
+                    
+                    // Resend the actual deleted message
                     await sock.sendMessage(OWNER_NUMBER, stored.msg.message);
-                    console.log('[ANTIDELETE HIT]', key.id);
+                    console.log('[EXPOSED]', name, key.id, type);
+                } else {
+                    console.log('[MISS] Deleted but not cached:', key.id);
                 }
             }
         }
+    });
+
+    // 3. BACKUP LISTENER FOR NEW WHATSAPP ✅
+    sock.ev.on('messages.delete', async ({ keys }) => {
+        if (!antiDelete) return;
+        for (const key of keys) {
+            if (key.remoteJid?.endsWith('@g.us')) continue;
+            const stored = msgStore.get(key.id);
+            if (stored) {
+                const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
+                await sock.sendMessage(OWNER_NUMBER, { text: `🗑️ *DELETED MESSAGE EXPOSED [BACKUP]*\n*From:* ${name}` });
+                await sock.sendMessage(OWNER_NUMBER, stored.msg.message);
+                console.log('[EXPOSED BACKUP]', name, key.id);
+            }
+        }
+    });
+
+    // COMMANDS
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        const msg = messages[0];
+        if (!msg.message || msg.key.remoteJid!== OWNER_NUMBER) return;
+        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+        const cmd = text.toLowerCase().trim();
+
+        if (cmd === '.antidelete on') { antiDelete = true; await sock.sendMessage(OWNER_NUMBER, { text: '🛡️ AntiDelete: ON' }); }
+        if (cmd === '.antidelete off') { antiDelete = false; await sock.sendMessage(OWNER_NUMBER, { text: '🛡️ AntiDelete: OFF' }); }
+        if (cmd === '.menu') await sock.sendMessage(OWNER_NUMBER, { text: '*V6.0*\n.antidelete on/off\nBot exposes ALL deleted DMs here.' });
     });
 }
 
