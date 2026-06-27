@@ -11,7 +11,7 @@ const {
 const pino = require('pino');
 const QRCode = require('qrcode');
 const axios = require('axios');
-const math = require('mathjs'); // npm i mathjs
+const math = require('mathjs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,7 +34,7 @@ let autoReplyText = `👋 *${BOT_NAME}* is Auto Replying.\n\nI'm currently busy.
 
 const msgStore = new Map();
 const vvStore = new Map(); 
-const notesDB = new Map(); // 6. Access Notes
+const notesDB = new Map();
 const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶'];
 const repliedTo = new Set();
 
@@ -119,24 +119,13 @@ function checkWin(b, p) {
     return wins.some(w => w.every(i => b[i] === p));
 }
 
-// AI HELPERS - OFFLINE VERSIONS FOR NOW
+// OFFLINE AI FALLBACK
 async function callAI(prompt) {
-    // TODO: Add your Mistral/OpenAI key here for real AI
-    // For now = offline fallback
-    if (prompt.includes('Summarize')) return '📄 *Summary:* AI key not added. Use your own API key.';
-    if (prompt.includes('Translate')) return '🌍 *Translated:* AI key not added.';
-    if (prompt.includes('Correct grammar')) return '✅ *Corrected:* AI key not added.';
-    return "❌ Add API key in callAI() for AI to work.";
+    return "❌ Add API key in callAI() for AI to work. For now = offline mode.";
 }
 
 async function downloadVideo(url) {
-    try {
-        // Replace with your downloader API. This is a placeholder.
-        // Example: Cobalt, vidfly, yt-dlp API
-        return { title: 'Video Download', url: url };
-    } catch {
-        return null;
-    }
+    return { title: 'Video Download', url: url };
 }
 
 async function startBot() {
@@ -251,7 +240,7 @@ async function startBot() {
                     const targetText = quotedText || args;
                     if (!targetText) return sock.sendMessage(from, { text: '📄 Reply to a long text with `.summarize`' });
                     await sock.sendMessage(from, { text: '⏳ Summarizing...' });
-                    const res = await callAI(`Summarize this in 5 bullet points: ${targetText}`);
+                    const res = await callAI(`Summarize: ${targetText}`);
                     await sock.sendMessage(from, { text: `📄 *Summary:*\n${res}` });
                     continue;
                 }
@@ -260,9 +249,9 @@ async function startBot() {
                 if (command.startsWith('.translate')) {
                     const lang = args.split(' ')[0] || 'en';
                     const targetText = quotedText || args.slice(lang.length).trim();
-                    if (!targetText) return sock.sendMessage(from, { text: '🌍 Usage: `.translate sw` then reply text\nLangs: sw, en, fr, es' });
+                    if (!targetText) return sock.sendMessage(from, { text: '🌍 Usage: `.translate sw` then reply text' });
                     await sock.sendMessage(from, { text: '⏳ Translating...' });
-                    const res = await callAI(`Translate this to ${lang}: ${targetText}`);
+                    const res = await callAI(`Translate to ${lang}: ${targetText}`);
                     await sock.sendMessage(from, { text: `🌍 *Translated to ${lang}:*\n${res}` });
                     continue;
                 }
@@ -272,7 +261,7 @@ async function startBot() {
                     const targetText = quotedText || args;
                     if (!targetText) return sock.sendMessage(from, { text: '✅ Reply to text with `.grammar`' });
                     await sock.sendMessage(from, { text: '⏳ Correcting...' });
-                    const res = await callAI(`Correct grammar and spelling only: ${targetText}`);
+                    const res = await callAI(`Correct grammar: ${targetText}`);
                     await sock.sendMessage(from, { text: `✅ *Corrected:*\n${res}` });
                     continue;
                 }
@@ -296,7 +285,6 @@ async function startBot() {
                     if (!url ||!url.includes('http')) return sock.sendMessage(from, { text: '⬇️ Usage: `.video https://tiktok.com/...`' });
                     await sock.sendMessage(from, { text: '⏳ Downloading video...' });
                     const data = await downloadVideo(url);
-                    if (!data) return sock.sendMessage(from, { text: '❌ Failed to download. Add downloader API.' });
                     await sock.sendMessage(from, { text: `⬇️ *${data.title}*\nLink: ${data.url}` });
                     continue;
                 }
@@ -401,4 +389,10 @@ async function startBot() {
                     case '.arec on': autoRecording = true; await sock.sendMessage(from, { text: '🎤 ON' }); break;
                     case '.arec off': autoRecording = false; await sock.sendMessage(from, { text: '🎤 OFF' }); break;
                     case '.atype on': autoTyping = true; await sock.sendMessage(from, { text: '⌨️ ON' }); break;
-            
+                    case '.atype off': autoTyping = false; await sock.sendMessage(from, { text: '⌨️ OFF' }); break;
+                    case '.aread on': autoReadMessages = true; await sock.sendMessage(from, { text: '📖 ON' }); break;
+                    case '.aread off': autoReadMessages = false; await sock.sendMessage(from, { text: '📖 OFF' }); break;
+                    case '.areact on': autoReactDM = true; await sock.sendMessage(from, { text: '😈 ON' }); break;
+                    case '.areact off': autoReactDM = false; await sock.sendMessage(from, { text: '😈 OFF' }); break;
+                    case '.antidelete on': antiDelete = true; await sock.sendMessage(from, { text: '🛡️ ON' }); break;
+                    case '.antidelete off': antiDelet
