@@ -16,14 +16,16 @@ module.exports = {
             const video = (await ytSearch(args)).videos[0];
             if(!video) return sock.sendMessage(from, { text: '❌ No song found' });
 
-            await execAsync(`${YT_DLP_PATH} -x --audio-format mp3 -o "${filePath}" "${video.url}"`);
+            // V10.10.8 ANTI-BLOCK FLAGS
+            const cmd = `${YT_DLP_PATH} -x --audio-format mp3 --audio-quality 0 --cookies-from-browser chrome --extractor-retries 3 --sleep-requests 1 -o "${filePath}" "${video.url}"`;
+            await execAsync(cmd);
 
             const buffer = fs.readFileSync(filePath);
             await sock.sendMessage(from, { audio: buffer, mimetype: 'audio/mpeg', fileName: `${video.title}.mp3`, caption: `🎵 *${video.title}*` });
             fs.unlinkSync(filePath);
         } catch(e) {
             if(fs.existsSync(filePath)) fs.unlinkSync(filePath);
-            await sock.sendMessage(from, { text: `❌ Failed: ${e.message}`, edit: sentMsg.key });
+            await sock.sendMessage(from, { text: `❌ Failed: YouTube blocked us. Try again in 1 min.\n${e.message}`, edit: sentMsg.key });
         }
     }
 }
