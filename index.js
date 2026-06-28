@@ -12,6 +12,8 @@ const pino = require('pino');
 const QRCode = require('qrcode');
 const axios = require('axios');
 const math = require('mathjs');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,6 +48,14 @@ const guessGames = new Map();
 
 const getNumber = (jid) => jidNormalizedUser(jid).replace(/[^0-9]/g, '');
 
+// V10.0 COMMAND HANDLER
+const commands = new Map();
+const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+for (const file of commandFiles) {
+    const command = require(`./commands/${file}`);
+    commands.set(command.name, command);
+}
+
 let currentQR = null;
 let sock;
 
@@ -53,8 +63,8 @@ setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
 const MENU_TEXT = `
 ╭━━━━━━━━━━━━━╮
-┃ 👑 *${BOT_NAME} V9.7* 👑 ┃
-┃ *𝗣𝗨𝗕𝗟𝗜𝗖 + 𝗔𝗗𝗠𝗜𝗡 𝗕𝗢𝗧* ┃
+┃ 👑 *${BOT_NAME} V10.0* 👑 ┃
+┃ *𝗛𝗔𝗡𝗗𝗟𝗘𝗥 + 𝗔𝗗𝗠𝗜𝗡 𝗕𝗢𝗧* ┃
 ╰━━━━━━━━━━━━━╯
 
 ╭──── 👑 *GROUP ADMIN* ────╮
@@ -90,7 +100,7 @@ const MENU_TEXT = `
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V9.7 Online</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V10.0 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -178,11 +188,11 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V9.7 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V10.0 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V9.7 LID OWNER Online` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V10.0 HANDLER Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
@@ -265,7 +275,7 @@ async function startBot() {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V9.7*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V10.0*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {};
@@ -292,257 +302,24 @@ async function startBot() {
 
                 if (command.startsWith('.')) {
                     await reactToCommand(from, msg.key);
-                }
-
-                // ===== GROUP ADMIN COMMANDS V9.7 NUMBERS ONLY =====
-                if (isGroup && isOwner) {
-                    const groupMeta = await sock.groupMetadata(from).catch(()=>null);
-                    if(!groupMeta) return sock.sendMessage(from, { text: '❌ Could not get group data' });
-
-                    const senderNum = getNumber(sender);
-                    const botNum = getNumber(sock.user.id);
+                    const cmdName = command.slice(1).split(' ')[0];
+                    const cmd = commands.get(cmdName);
                     
-                    const senderIsAdmin = groupMeta.participants.find(p => getNumber(p.id) === senderNum)?.admin;
-                    const botIsAdmin = groupMeta.participants.find(p => getNumber(p.id) === botNum)?.admin;
-                    
-                    // DEBUG V9.7
-                    if(command.startsWith('.kick')) {
-                        let list = `🧪 *DEBUG V9.7*\nBot Num: ${botNum} Admin: ${botIsAdmin}\nYou Num: ${senderNum} Admin: ${senderIsAdmin}\n\n*All in group:*\n`;
-                        groupMeta.participants.forEach(p => {
-                            list += `-> ${getNumber(p.id)} Admin: ${p.admin}\n`;
-                        });
-                        await sock.sendMessage(OWNER_NUMBER, { text: list });
-                    }
-
-                    if(!botIsAdmin && ['.kick','.add','.promote','.demote','.mute','.unmute'].includes(command.split(' ')[0])){
-                        return sock.sendMessage(from, { text: `❌ Bot must be Admin 👑\nBot Admin = ${botIsAdmin}` });
-                    }
-
-                    if(!senderIsAdmin && ['.kick','.add','.promote','.demote','.mute','.unmute'].includes(command.split(' ')[0])){
-                        return sock.sendMessage(from, { text: `❌ You must be Admin 👑\nYou Admin = ${senderIsAdmin}` });
-                    }
-
-                    if (command.startsWith('.kick')) {
-                        const target = mentions[0];
-                        if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.kick @user`' });
-                        await sock.groupParticipantsUpdate(from, [target], 'remove');
-                        await sock.sendMessage(from, { text: `👢 Kicked @${target.split('@')[0]}`, mentions: [target] });
-                        continue;
-                    }
-
-                    if (command.startsWith('.add')) {
-                        const num = args.replace(/[^0-9]/g, '');
-                        if (!num) return sock.sendMessage(from, { text: '👑 Usage: `.add 2547...`' });
-                        await sock.groupParticipantsUpdate(from, [`${num}@s.whatsapp.net`], 'add');
-                        await sock.sendMessage(from, { text: `✅ Added ${num}` });
-                        continue;
-                    }
-
-                    if (command.startsWith('.promote')) {
-                        const target = mentions[0];
-                        if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.promote @user`' });
-                        await sock.groupParticipantsUpdate(from, [target], 'promote');
-                        await sock.sendMessage(from, { text: `⬆️ Promoted @${target.split('@')[0]}`, mentions: [target] });
-                        continue;
-                    }
-
-                    if (command.startsWith('.demote')) {
-                        const target = mentions[0];
-                        if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.demote @user`' });
-                        await sock.groupParticipantsUpdate(from, [target], 'demote');
-                        await sock.sendMessage(from, { text: `⬇️ Demoted @${target.split('@')[0]}`, mentions: [target] });
-                        continue;
-                    }
-
-                    if (command === '.mute') {
-                        await sock.groupSettingUpdate(from, 'announcement');
-                        await sock.sendMessage(from, { text: '🔒 Group muted' });
-                        continue;
-                    }
-
-                    if (command === '.unmute') {
-                        await sock.groupSettingUpdate(from, 'not_announcement');
-                        await sock.sendMessage(from, { text: '🔓 Group unmuted' });
-                        continue;
-                    }
-
-                    if (command.startsWith('.warn')) {
-                        const target = mentions[0];
-                        if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.warn @user`' });
-                        if (!warningsDB.has(from)) warningsDB.set(from, {});
-                        const warns = warningsDB.get(from);
-                        warns[target] = (warns[target] || 0) + 1;
-                        await sock.sendMessage(from, { text: `⚠️ @${target.split('@')[0]} warned. ${warns[target]}/3`, mentions: [target] });
-                        if (warns[target] >= 3 && botIsAdmin) {
-                            await sock.groupParticipantsUpdate(from, [target], 'remove');
-                            await sock.sendMessage(from, { text: `👢 @${target.split('@')[0]} kicked`, mentions: [target] });
-                            delete warns[target];
+                    if (cmd) {
+                        try {
+                            const ctx = { from, sender, args, mentions, isGroup, isOwner, groupSettings, getNumber, groupMeta: null, botIsAdmin: false, senderIsAdmin: false, tttGames, guessGames, notesDB, warningsDB, callAI, downloadVideo, MENU_TEXT, MENU_IMAGE_URL };
+                            if(isGroup) {
+                                ctx.groupMeta = await sock.groupMetadata(from).catch(()=>null);
+                                const senderNum = getNumber(sender);
+                                const botNum = getNumber(sock.user.id);
+                                ctx.senderIsAdmin = ctx.groupMeta?.participants.find(p => getNumber(p.id) === senderNum)?.admin;
+                                ctx.botIsAdmin = ctx.groupMeta?.participants.find(p => getNumber(p.id) === botNum)?.admin;
+                            }
+                            await cmd.execute(sock, msg, ctx);
+                        } catch (err) {
+                            await sock.sendMessage(from, { text: `❌ Command error: ${err.message}` });
                         }
-                        continue;
                     }
-
-                    if (command.startsWith('.warnings')) {
-                        const target = mentions[0];
-                        if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.warnings @user`' });
-                        const count = warningsDB.get(from)?.[target] || 0;
-                        await sock.sendMessage(from, { text: `⚠️ @${target.split('@')[0]} has ${count}/3 warnings`, mentions: [target] });
-                        continue;
-                    }
-
-                    if (command === '.tagall') {
-                        const members = groupMeta.participants.map(p => p.id);
-                        let txt = `📢 *Tag All ${members.length}*\n\n`;
-                        members.forEach(m => txt += `@${m.split('@')[0]} `);
-                        await sock.sendMessage(from, { text: txt, mentions: members });
-                        continue;
-                    }
-
-                    if (command.startsWith('.hidetag')) {
-                        const msgTxt = args || '👀';
-                        const members = groupMeta.participants.map(p => p.id);
-                        await sock.sendMessage(from, { text: msgTxt, mentions: members });
-                        continue;
-                    }
-
-                    if (command.startsWith('.antilink')) {
-                        const state = args;
-                        if (!groupSettings.has(from)) groupSettings.set(from, {});
-                        groupSettings.get(from).antilink = state === 'on';
-                        await sock.sendMessage(from, { text: `🚫 Antilink: ${state === 'on'? 'ON ✅' : 'OFF ❌'}` });
-                        continue;
-                    }
-
-                    if (command.startsWith('.welcome')) {
-                        const state = args;
-                        if (!groupSettings.has(from)) groupSettings.set(from, {});
-                        groupSettings.get(from).welcome = state === 'on';
-                        await sock.sendMessage(from, { text: `👋 Welcome: ${state === 'on'? 'ON ✅' : 'OFF ❌'}` });
-                        continue;
-                    }
-                }
-
-                if (command.startsWith('.summarize')) {
-                    const targetText = quotedText || args;
-                    if (!targetText) return sock.sendMessage(from, { text: '📄 Reply to text with `.summarize`' });
-                    await sock.sendMessage(from, { text: '⏳ Summarizing...' });
-                    const res = await callAI(`Summarize in 5 bullets: ${targetText}`);
-                    await sock.sendMessage(from, { text: `📄 *Summary:*\n${res}` });
-                    continue;
-                }
-
-                if (command.startsWith('.translate')) {
-                    const lang = args.split(' ')[0] || 'en';
-                    const targetText = quotedText || args.slice(lang.length).trim();
-                    if (!targetText) return sock.sendMessage(from, { text: '🌍 Usage: `.translate sw` + reply' });
-                    await sock.sendMessage(from, { text: '⏳ Translating...' });
-                    const res = await callAI(`Translate to ${lang}: ${targetText}`);
-                    await sock.sendMessage(from, { text: `🌍 *${lang}:*\n${res}` });
-                    continue;
-                }
-
-                if (command.startsWith('.grammar')) {
-                    const targetText = quotedText || args;
-                    if (!targetText) return sock.sendMessage(from, { text: '✅ Reply to text with `.grammar`' });
-                    await sock.sendMessage(from, { text: '⏳ Correcting...' });
-                    const res = await callAI(`Fix grammar: ${targetText}`);
-                    await sock.sendMessage(from, { text: `✅ *Corrected:*\n${res}` });
-                    continue;
-                }
-
-                if (command.startsWith('.calc')) {
-                    const equation = args;
-                    if (!equation) return sock.sendMessage(from, { text: '🧮 Usage: `.calc 2+2*5`' });
-                    try {
-                        const result = math.evaluate(equation);
-                        await sock.sendMessage(from, { text: `🧮 \`${equation} = ${result}\`` });
-                    } catch {
-                        await sock.sendMessage(from, { text: '❌ Invalid equation' });
-                    }
-                    continue;
-                }
-
-                if (command.startsWith('.video')) {
-                    const url = args;
-                    if (!url ||!url.includes('http')) return sock.sendMessage(from, { text: '⬇️ Usage: `.video https://...`' });
-                    await sock.sendMessage(from, { text: '⏳ Downloading...' });
-                    const data = await downloadVideo(url);
-                    await sock.sendMessage(from, { text: `⬇️ *${data.title}*\n${data.url}` });
-                    continue;
-                }
-
-                if (command.startsWith('.notes')) {
-                    const subCmd = args.split(' ')[0];
-                    const content = args.slice(subCmd.length).trim();
-                    if (subCmd === 'save') {
-                        if (!content) return sock.sendMessage(from, { text: '🗒️ Usage: `.notes save text`' });
-                        notesDB.set(sender, content);
-                        await sock.sendMessage(from, { text: '🗒️ Saved ✅' });
-                    } else if (subCmd === 'list') {
-                        const note = notesDB.get(sender);
-                        await sock.sendMessage(from, { text: note? `🗒️ *Your Note:*\n${note}` : '🗒️ No note' });
-                    } else if (subCmd === 'del') {
-                        notesDB.delete(sender);
-                        await sock.sendMessage(from, { text: '🗒️ Deleted ✅' });
-                    } else {
-                        await sock.sendMessage(from, { text: '🗒️ Usage: `.notes save/list/del`' });
-                    }
-                    continue;
-                }
-
-                if (command === '.tictactoe') {
-                    tttGames.set(from, newTTT());
-                    await sock.sendMessage(from, { text: `❌⭕ *TicTacToe*\nYou=X Bot=O\n${tttBoard(Array(9).fill(' '))}` });
-                    continue;
-                }
-                if (/^\.[1-9]$/.test(command) && tttGames.has(from)) {
-                    const game = tttGames.get(from);
-                    const pos = parseInt(command[1]) - 1;
-                    if (game.board[pos]!== ' ') return sock.sendMessage(from, { text: '❌ Taken' });
-                    game.board[pos] = 'X';
-                    if (checkWin(game.board, 'X')) { tttGames.delete(from); return sock.sendMessage(from, { text: `You Win! 🎉\n${tttBoard(game.board)}` }); }
-                    if (!game.board.includes(' ')) { tttGames.delete(from); return sock.sendMessage(from, { text: `Draw! 🤝\n${tttBoard(game.board)}` }); }
-                    const empty = game.board.map((v,i)=>v===' '?i:null).filter(v=>v!==null);
-                    const botPos = empty[Math.floor(Math.random()*empty.length)];
-                    game.board[botPos] = 'O';
-                    if (checkWin(game.board, 'O')) { tttGames.delete(from); return sock.sendMessage(from, { text: `Bot Wins! 🤖\n${tttBoard(game.board)}` }); }
-                    await sock.sendMessage(from, { text: `Your move:\n${tttBoard(game.board)}` });
-                    continue;
-                }
-                if (command === '.guess') {
-                    guessGames.set(from, { number: Math.floor(Math.random()*100)+1, tries: 0 });
-                    await sock.sendMessage(from, { text: `🔢 *Guess 1-100*\nSend number` });
-                    continue;
-                }
-                if (/^\d+$/.test(command) && guessGames.has(from)) {
-                    const game = guessGames.get(from);
-                    const num = parseInt(command);
-                    game.tries++;
-                    if (num === game.number) { guessGames.delete(from); return sock.sendMessage(from, { text: `🎉 Correct! ${num} in ${game.tries}` }); }
-                    await sock.sendMessage(from, { text: num < game.number? `📈 Higher!` : `📉 Lower!` });
-                    continue;
-                }
-                if (command === '.rps') {
-                    await sock.sendMessage(from, { text: `✊📄✂️ *RPS*\nReply: \`rock\` \`paper\` \`scissors\`` });
-                    continue;
-                }
-                if (['rock','paper','scissors'].includes(command)) {
-                    const choices = ['rock','paper','scissors'];
-                    const bot = choices[Math.floor(Math.random()*3)];
-                    let result = 'Draw 🤝';
-                    if ((command==='rock'&&bot==='scissors')||(command==='paper'&&bot==='rock')||(command==='scissors'&&bot==='paper')) result = 'You Win! 🎉';
-                    if ((bot==='rock'&&command==='scissors')||(bot==='paper'&&command==='rock')||(bot==='scissors'&&command==='paper')) result = 'Bot Wins! 🤖';
-                    await sock.sendMessage(from, { text: `You:${command} Bot:${bot}\n${result}` });
-                    continue;
-                }
-
-                switch (command) {
-                    case '.menu': await sock.sendMessage(from, { image: { url: MENU_IMAGE_URL }, caption: MENU_TEXT }); break;
-                    case '.ping': const s = Date.now(); await sock.sendMessage(from, { text: `🏓 Pong \`${Date.now() - s}ms\`` }); break;
-                    case '.time': await sock.sendMessage(from, { text: `🕒 \`${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}\`` }); break;
-                    case '.jid': await sock.sendMessage(from, { text: `🆔 \`${from}\`` }); break;
-                    case '.owner': await sock.sendMessage(from, { text: '👑 87433337143370' }); break;
-                    case '.cache': await sock.sendMessage(from, { text: `🗂️ Cache:\`${msgStore.size}\`\n👻 VV:\`${vvStore.size}\`` }); break;
-                    case '.logs': await sock.sendMessage(from, { text: `🧪 VV Count:\`${vvStore.size}\`` }); break;
                 }
 
                 if(isOwner){
