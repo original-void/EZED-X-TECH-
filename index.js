@@ -49,14 +49,14 @@ let sock;
 
 setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
-// V8.3.4 CEO MENU - DECORATED
+// V8.3.5 CEO MENU - FIXED BACKTICKS
 const MENU_TEXT = `
 ╭━━━━━━━━━━━╮
-┃ 👑 *${BOT_NAME} V8.3.4* 👑 ┃
+┃ 👑 *${BOT_NAME} V8.3.5* 👑 ┃
 ┃ *𝗣𝗨𝗕𝗟𝗜𝗖 + 𝗔𝗗𝗠𝗜𝗡 𝗕𝗢𝗧* ┃
 ╰━━━━━━━━━━━╯
 
-╭───【 *𝗦𝗧𝗔𝗧𝗨𝗦* 】───╮
+╭──────╮
 ┃ 🤖 *Bot* : ${BOT_NAME}
 ┃ 🟢 *Online* : \`${autoOnline? 'ON ✅' : 'OFF ❌'}\`
 ┃ 🤖 *AutoReply* : \`${autoReply? 'ON ✅' : 'OFF ❌'}\`
@@ -65,7 +65,7 @@ const MENU_TEXT = `
 ┃ 🛡️ *AntiDelete* : \`${antiDelete? 'ON ✅' : 'OFF ❌'}\`
 ╰───────────────────╯
 
-╭───【 *𝗚𝗥𝗢𝗨𝗣 𝗔𝗗𝗠𝗜𝗡* 👑 】───╮
+╭──────╮
 ┃ *Owner + Group Admin Only*
 ┃ 
 ┃ 𝟭. \`.kick @user\` / \`/kick @user\`
@@ -81,7 +81,7 @@ const MENU_TEXT = `
 ┃ 𝟭. \`.welcome on/off\` > Welcome msg
 ╰─────────────────────────╯
 
-╭───【 *𝗔𝗜 𝗧𝗢𝗟𝗦* 🧠 】───╮
+╭──────╮
 ┃ *Public - DM or Group*
 ┃
 ┃ ✨ \`.summarize\` > Reply long text
@@ -92,13 +92,13 @@ const MENU_TEXT = `
 ┃ 🗒️ \`.notes save/list/del\`
 ╰─────────────────────╯
 
-╭───【 *𝗚𝗔𝗠𝗘𝗦* 🎮 】───╮
+╭──────╮
 ┃ 🎯 \`.tictactoe\` > X vs O
 ┃ 🔢 \`.guess\` > 1-100 game
 ┃ ✊ \`.rps\` > Rock Paper Scissors
 ╰───────────────────╯
 
-╭───【 *𝗦𝗬𝗦𝗧𝗘𝗠* ⚙️ 】───╮
+╭──────╮
 ┃ 📜 \`.menu\` > Show this menu
 ┃ 🏓 \`.ping\` > Check speed
 ┃ 🕒 \`.time\` > KE Time
@@ -106,7 +106,7 @@ const MENU_TEXT = `
 ┃ 👑 \`.owner\` > Contact owner
 ╰───────────────────╯
 
-╭───【 *𝗢𝗪𝗡𝗘𝗥 𝗢𝗡𝗟𝗬* 🔒 】───╮
+╭──────╮
 ┃ \`.aonline.on/off\` \`.autoreply.on/off\`
 ┃ \`.setreply text\` \`.aview.on/off\`
 ┃ \`.alike.on/off\` \`.aread.on/off\`
@@ -115,12 +115,12 @@ const MENU_TEXT = `
 ┃ \`.cache\` \`.logs\`
 ╰─────────────────────────╯
 
-> *Tip:* `. or /` works for all commands
-> *Owner:* `254769532338`
+> *Tip:* Use. or / for all commands
+> *Owner:* 254769532338
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V8.3.4 Online</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V8.3.5 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -209,17 +209,17 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V8.3.4 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V8.3.5 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V8.3.4 Public Edition Online` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V8.3.5 Public Edition Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
     });
 
-    // FIXED: Welcome with mentions array
+    // WELCOME NEW MEMBERS - FIXED
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
         const settings = groupSettings.get(id) || {};
@@ -227,12 +227,13 @@ async function startBot() {
             for (const user of participants) {
                 await sock.sendMessage(id, { 
                     text: `👋 Welcome @${user.split('@')[0]} to the group!\nEnjoy your stay ✅`, 
-                    mentions: // FIXED
+                    mentions: 
                 });
             }
         }
     });
 
+    // AUTO VIEW + AUTO LIKE STATUS
     sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
             if (msg.key.remoteJid === 'status@broadcast' && msg.key.participant &&!msg.key.fromMe) {
@@ -300,7 +301,7 @@ async function startBot() {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V8.3.4*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V8.3.5*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {};
@@ -576,7 +577,7 @@ async function startBot() {
                     case '.ping': const s = Date.now(); await sock.sendMessage(from, { text: `🏓 Pong \`${Date.now() - s}ms\`` }); break;
                     case '.time': await sock.sendMessage(from, { text: `🕒 \`${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}\`` }); break;
                     case '.jid': await sock.sendMessage(from, { text: `🆔 \`${from}\`` }); break;
-                    case '.owner': await sock.sendMessage(from, { text: '👑 `254769532338`' }); break;
+                    case '.owner': await sock.sendMessage(from, { text: '👑 254769532338' }); break;
                 }
 
                 // OWNER ONLY TOGGLES
@@ -618,7 +619,7 @@ async function startBot() {
     // ANTIDELETE
     sock.ev.on('messages.update', async (updates) => {
         for (const { key, update } of updates) {
-                        if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
+            if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
                 const stored = msgStore.get(key.id);
                 if (stored) {
                     const name = await sock.getName(stored.sender) || stored.sender.split('@')[0];
