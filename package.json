@@ -1,6 +1,6 @@
 {
   "name": "ezed-x-tech",
-  "version": "10.8.0",
+  "version": "10.10.0",
   "main": "index.js",
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.5",
@@ -9,7 +9,7 @@
     "mathjs": "^12.4.2",
     "pino": "^9.3.2",
     "qrcode": "^1.5.4",
-    "ytdl-core": "^4.11.5",
+    "yt-dlp-exec": "^1.2.0",
     "yt-search": "^2.10.4"
   }
 }
