@@ -49,10 +49,10 @@ let sock;
 
 setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
-// V8.3.5 CEO MENU - FIXED BACKTICKS
+// V8.3.7 CEO MENU
 const MENU_TEXT = `
 ╭━━━━━━━━━━━╮
-┃ 👑 *${BOT_NAME} V8.3.5* 👑 ┃
+┃ 👑 *${BOT_NAME} V8.3.7* 👑 ┃
 ┃ *𝗣𝗨𝗕𝗟𝗜𝗖 + 𝗔𝗗𝗠𝗜𝗡 𝗕𝗢𝗧* ┃
 ╰━━━━━━━━━━━╯
 
@@ -120,7 +120,7 @@ const MENU_TEXT = `
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V8.3.5 Online</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V8.3.7 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -209,26 +209,26 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V8.3.5 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V8.3.7 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V8.3.5 Public Edition Online` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V8.3.7 Public Edition Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
     });
 
-    // WELCOME NEW MEMBERS - FIXED
+    // WELCOME NEW MEMBERS - FIXED FOR REAL
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
         const settings = groupSettings.get(id) || {};
         if (action === 'add' && settings.welcome) {
             for (const user of participants) {
                 await sock.sendMessage(id, { 
-    text: `👋 Welcome @${user.split('@')[0]} to the group!\nEnjoy your stay ✅`, 
-    mentions: 
-});
+                    text: `👋 Welcome @${user.split('@')[0]} to the group!\nEnjoy your stay ✅`, 
+                    mentions: 
+                });
             }
         }
     });
@@ -301,7 +301,7 @@ async function startBot() {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V8.3.5*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V8.3.7*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {};
@@ -627,7 +627,7 @@ async function startBot() {
                     await sock.sendMessage(OWNER_NUMBER, { text: `🗑️ *DELETED by ${name}*\n*Type:* ${type}` });
                     try {
                         if (['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage'].includes(type)) {
-                            const buffer = await downloadMediaMessage(stored.msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
+                            const buffer = await downloadMediaMessage(stored.msg, 'buffer', {}, { reuploadRequest.updateMediaMessage });
                             const sendObj = {};
                             sendObj[type.replace('Message','')] = buffer;
                             sendObj.mimetype = stored.msg.message[type].mimetype;
