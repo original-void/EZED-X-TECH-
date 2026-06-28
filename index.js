@@ -20,7 +20,7 @@ const BOT_NAME = 'EZED X TECH';
 const OWNER_NUMBER = '254769532338@s.whatsapp.net';
 const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
-const MISTRAL_KEY = 'leekOeO7HJToWQZ9jXlHXj596KAaEet8'; // <<<< PASTE NEW KEY HERE
+const MISTRAL_KEY = 'PASTE_MISTRAL_KEY_HERE';
 
 let autoRecording = true;
 let autoTyping = true;
@@ -36,7 +36,9 @@ let autoReplyText = `👋 *${BOT_NAME}* is Auto Replying.\n\nI'm currently busy.
 const msgStore = new Map();
 const vvStore = new Map(); 
 const notesDB = new Map();
-const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶','😜','👿','😎','😇','💥','🥰','😤','😄','😃','🤗','💍','🔥','👏'];
+const warningsDB = new Map(); // { groupJid: { userJid: count }
+const groupSettings = new Map(); // { groupJid: { antilink: false, welcome: false }
+const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶'];
 const repliedTo = new Set();
 
 const tttGames = new Map();
@@ -47,11 +49,11 @@ let sock;
 
 setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
-// CEO EDITION MENU - ALL COMMANDS
+// CEO ADMIN EDITION MENU
 const MENU_TEXT = `
 ╭════════════╮
 ║ 👑 ${BOT_NAME} V8.3 👑 ║
-║ 𝗠𝗜𝗦𝗧𝗥𝗔𝗟 𝗔𝗜 𝗘𝗗𝗜𝗧𝗜𝗢𝗡 ║
+║ 𝗔𝗗𝗠𝗜𝗡 + 𝗠𝗜𝗦𝗧𝗥𝗔𝗟 𝗔𝗜 ║
 ╰════════════╯
 
 ╭───〔 𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦 〕───╮
@@ -63,52 +65,50 @@ const MENU_TEXT = `
 │ 🛡️ 𝗔𝗻𝘁𝗶𝗗𝗲𝗹𝗲𝘁𝗲 : \`${antiDelete? 'ON ✅' : 'OFF ❌'}\`
 ╰────────────────────╯
 
+╭───〔 𝗚𝗥𝗢𝗨𝗣 𝗔𝗗𝗠𝗜𝗡 👑 〕───╮
+│ 𝟭. \`.kick @user\` > Remove member
+│ 𝟮. \`.add 2547...\` > Add member
+│ 𝟯. \`.promote @user\` > Make admin
+│ 𝟰. \`.demote @user\` > Remove admin
+│ 𝟱. \`.mute\` > Lock group
+│ 𝟲. \`.unmute\` > Unlock group
+│ 𝟳. \`.warn @user\` > Warn user
+│ 𝟴. \`.warnings @user\` > Check warns
+│ 𝟵. \`.tagall\` > Mention all
+│ 𝟭𝟬. \`.hidetag text\` > Hidden tag
+│ 𝟭. \`.antilink on/off\` > Block links
+│ 𝟭𝟮. \`.welcome on/off\` > Welcome msg
+╰────────────────────╯
+
 ╭───〔 𝗔𝗜 𝗧𝗢𝗟𝗦 🧠 〕───╮
-│ 𝟭. \`.summarize\` 
-│ > Reply to long text to summarize
-│ 𝟮. \`.translate sw/en/fr/es\` 
-│ >.translate sw hello world
-│ 𝟯. \`.grammar\` 
-│ > Fix grammar & spelling
-│ 𝟰. \`.calc 2+2*5\` 
-│ > Math calculator
-│ 𝟱. \`.video [url]\` 
-│ > TikTok/YouTube download
-│ 𝟲. \`.notes save/list/del\` 
-│ > Save private notes
+│ 𝟭. \`.summarize\` > Summarize text
+│ 𝟮. \`.translate sw/en/fr/es\` > Translate
+│ 𝟯. \`.grammar\` > Fix grammar
+│ 𝟰. \`.calc 2+2*5\` > Math
+│ 𝟱. \`.video [url]\` > Download
+│ 𝟲. \`.notes save/list/del\` > Notes
 ╰────────────────────╯
 
 ╭───〔 𝗚𝗔𝗠𝗘𝗦 🎮 〕───╮
-│ 🎯 \`.tictactoe\` > Play X vs O
-│ Then reply \`.1\` to \`.9\`
+│ 🎯 \`.tictactoe\` > X vs O.1-.9
 │ 🔢 \`.guess\` > Guess 1-100
 │ ✊ \`.rps\` > Rock Paper Scissors
 ╰────────────────────╯
 
 ╭───〔 𝗔𝗨𝗧𝗢 𝗙𝗘𝗔𝗧𝗨𝗥𝗘𝗦 ⚡ 〕───╮
-│ \`.aonline on/off\` > Auto Online
-│ \`.autoreply on/off\` > Auto Reply DM
-│ \`.setreply your text\` > Change reply
-│ \`.aview on/off\` > Auto View Status
-│ \`.alike on/off\` > Auto Like Status
-│ \`.aread on/off\` > Auto Read DMs
-│ \`.areact on/off\` > Auto React DMs
-│ \`.atype on/off\` > Auto Typing...
-│ \`.arec on/off\` > Auto Recording...
-│ \`.antidelete on/off\` > Anti Delete
+│ \`.aonline on/off\` \`.autoreply on/off\`
+│ \`.setreply text\` \`.aview on/off\`
+│ \`.alike on/off\` \`.aread on/off\`
+│ \`.areact on/off\` \`.atype on/off\`
+│ \`.arec on/off\` \`.antidelete on/off\`
 ╰────────────────────╯
 
 ╭───〔 𝗜𝗡𝗙𝗢 & 𝗦𝗬𝗦𝗧𝗘𝗠 ⚙️ 〕───╮
-│ \`.menu\` > Show this menu
-│ \`.ping\` > Check bot speed
-│ \`.time\` > KE Time
-│ \`.jid\` > Get chat JID
-│ \`.owner\` > Owner number
-│ \`.cache\` > Show cache stats
-│ \`.logs\` > View VV logs
+│ \`.menu\` \`.ping\` \`.time\` \`.jid\`
+│ \`.owner\` \`.cache\` \`.logs\`
 ╰────────────────────╯
 
-*Tip: Reply to any text with AI commands*
+*Note: Group cmds = Group + Admin only*
 *Owner: 254769532338*
 `;
 
@@ -153,7 +153,6 @@ function checkWin(b, p) {
     return wins.some(w => w.every(i => b[i] === p));
 }
 
-// MISTRAL AI
 async function callAI(prompt) {
     if (!MISTRAL_KEY || MISTRAL_KEY === 'PASTE_MISTRAL_KEY_HERE') {
         return "❌ Add your Mistral API key in code first.";
@@ -202,9 +201,21 @@ async function startBot() {
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V8.3 Online\n🧠 Mistral AI Connected` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V8.3 Admin Edition Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
+        }
+    });
+
+    // WELCOME NEW MEMBERS
+    sock.ev.on('group-participants.update', async (update) => {
+        const { id, participants, action } = update;
+        const settings = groupSettings.get(id) || {};
+        if (action === 'add' && settings.welcome) {
+            for (const user of participants) {
+                const name = await sock.getName(user) || user.split('@')[0];
+                await sock.sendMessage(id, { text: `👋 Welcome @${user.split('@')[0]} to the group!\nEnjoy your stay ✅`, mentions: [user] });
+            }
         }
     });
 
@@ -235,17 +246,30 @@ async function startBot() {
                 const isGroup = from.endsWith('@g.us');
                 const isFromMe = msg.key.fromMe;
                 const isOwner = from === OWNER_NUMBER || isFromMe;
+                const sender = jidNormalizedUser(msg.key.participant || from);
                 const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
                 const quoted = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
                 const quotedText = quoted?.conversation || quoted?.extendedTextMessage?.text || '';
                 const command = text.toLowerCase().trim();
                 const args = text.slice(command.split(' ')[0].length).trim();
+                const mentions = msg.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
+
+                // ANTILINK
+                if (isGroup) {
+                    const settings = groupSettings.get(from) || {};
+                    if (settings.antilink &&!isFromMe && (text.includes('http://') || text.includes('https://'))) {
+                        const groupMeta = await sock.groupMetadata(from);
+                        const isAdmin = groupMeta.participants.find(p => p.id === sender)?.admin;
+                        if (!isAdmin) {
+                            await sock.sendMessage(from, { delete: msg.key });
+                            await sock.sendMessage(from, { text: `🚫 @${sender.split('@')[0]} Links are not allowed here`, mentions: [sender] });
+                        }
+                    }
+                }
 
                 if (antiDelete &&!isGroup &&!isFromMe) {
                     msgStore.set(msg.key.id, { 
-                        msg, from, 
-                        sender: jidNormalizedUser(msg.key.participant || from),
-                        timestamp: msg.messageTimestamp
+                        msg, from, sender, timestamp: msg.messageTimestamp
                     });
                 }
 
@@ -283,6 +307,112 @@ async function startBot() {
                 if (autoOnline) await sock.sendPresenceUpdate('available', from);
                 if (autoTyping) await sock.sendPresenceUpdate('composing', from);
                 if (autoRecording) await sock.sendPresenceUpdate('recording', from);
+
+                // ===== GROUP ADMIN COMMANDS =====
+                if (isGroup) {
+                    const groupMeta = await sock.groupMetadata(from);
+                    const isAdmin = groupMeta.participants.find(p => p.id === sender)?.admin;
+                    const botIsAdmin = groupMeta.participants.find(p => p.id === sock.user.id)?.admin;
+                    
+                    if (command.startsWith('.kick') && isAdmin && botIsAdmin) {
+                        const target = mentions[0];
+                        if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.kick @user`' });
+                        await sock.groupParticipantsUpdate(from, [target], 'remove');
+                        await sock.sendMessage(from, { text: `👢 Kicked @${target.split('@')[0]}`, mentions: [target] });
+                        continue;
+                    }
+
+                    if (command.startsWith('.add') && isAdmin && botIsAdmin) {
+                        const num = args.replace(/[^0-9]/g, '');
+                        if (!num) return sock.sendMessage(from, { text: '👑 Usage: `.add 2547...`' });
+                        await sock.groupParticipantsUpdate(from, [`${num}@s.whatsapp.net`], 'add');
+                        await sock.sendMessage(from, { text: `✅ Added ${num}` });
+                        continue;
+                    }
+
+                    if (command.startsWith('.promote') && isAdmin && botIsAdmin) {
+                        const target = mentions[0];
+                        if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.promote @user`' });
+                        await sock.groupParticipantsUpdate(from, [target], 'promote');
+                        await sock.sendMessage(from, { text: `⬆️ Promoted @${target.split('@')[0]}`, mentions: [target] });
+                        continue;
+                    }
+
+                    if (command.startsWith('.demote') && isAdmin && botIsAdmin) {
+                        const target = mentions[0];
+                        if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.demote @user`' });
+                        await sock.groupParticipantsUpdate(from, [target], 'demote');
+                        await sock.sendMessage(from, { text: `⬇️ Demoted @${target.split('@')[0]}`, mentions: [target] });
+                        continue;
+                    }
+
+                    if (command === '.mute' && isAdmin && botIsAdmin) {
+                        await sock.groupSettingUpdate(from, 'announcement');
+                        await sock.sendMessage(from, { text: '🔒 Group muted. Only admins can chat.' });
+                        continue;
+                    }
+
+                    if (command === '.unmute' && isAdmin && botIsAdmin) {
+                        await sock.groupSettingUpdate(from, 'not_announcement');
+                        await sock.sendMessage(from, { text: '🔓 Group unmuted. Everyone can chat.' });
+                        continue;
+                    }
+
+                    if (command.startsWith('.warn') && isAdmin) {
+                        const target = mentions[0];
+                        if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.warn @user`' });
+                        if (!warningsDB.has(from)) warningsDB.set(from, {});
+                        const warns = warningsDB.get(from);
+                        warns[target] = (warns[target] || 0) + 1;
+                        await sock.sendMessage(from, { text: `⚠️ @${target.split('@')[0]} warned. Total: ${warns[target]}/3`, mentions: [target] });
+                        if (warns[target] >= 3 && botIsAdmin) {
+                            await sock.groupParticipantsUpdate(from, [target], 'remove');
+                            await sock.sendMessage(from, { text: `👢 @${target.split('@')[0]} kicked after 3 warnings`, mentions: [target] });
+                            delete warns[target];
+                        }
+                        continue;
+                    }
+
+                    if (command.startsWith('.warnings') && isAdmin) {
+                        const target = mentions[0];
+                        if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.warnings @user`' });
+                        const count = warningsDB.get(from)?.[target] || 0;
+                        await sock.sendMessage(from, { text: `⚠️ @${target.split('@')[0]} has ${count}/3 warnings`, mentions: [target] });
+                        continue;
+                    }
+
+                    if (command === '.tagall' && isAdmin) {
+                        const members = groupMeta.participants.map(p => p.id);
+                        let txt = `📢 *Tag All ${members.length}*\n\n`;
+                        members.forEach(m => txt += `@${m.split('@')[0]} `);
+                        await sock.sendMessage(from, { text: txt, mentions: members });
+                        continue;
+                    }
+
+                    if (command.startsWith('.hidetag') && isAdmin) {
+                        const msgTxt = args || '👀';
+                        const members = groupMeta.participants.map(p => p.id);
+                        await sock.sendMessage(from, { text: msgTxt, mentions: members });
+                        continue;
+                    }
+
+                    if (command.startsWith('.antilink') && isAdmin) {
+                        const state = args;
+                        if (!groupSettings.has(from)) groupSettings.set(from, {});
+                        groupSettings.get(from).antilink = state === 'on';
+                        await sock.sendMessage(from, { text: `🚫 Antilink: ${state === 'on'? 'ON ✅' : 'OFF ❌'}` });
+                        continue;
+                    }
+
+                    if (command.startsWith('.welcome') && isAdmin) {
+                        const state = args;
+                        if (!groupSettings.has(from)) groupSettings.set(from, {});
+                        groupSettings.get(from).welcome = state === 'on';
+                        await sock.sendMessage(from, { text: `👋 Welcome: ${state === 'on'? 'ON ✅' : 'OFF ❌'}` });
+                        continue;
+                    }
+                }
+                // ===== END GROUP COMMANDS =====
 
                 // AI COMMANDS
                 if (command.startsWith('.summarize')) {
@@ -467,7 +597,7 @@ async function startBot() {
                         if (['imageMessage','videoMessage','audioMessage','documentMessage','stickerMessage'].includes(type)) {
                             const buffer = await downloadMediaMessage(stored.msg, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {};
-                            sendObj[type.replace('Message','')] = buffer;
+                                                        sendObj[type.replace('Message','')] = buffer;
                             sendObj.mimetype = stored.msg.message[type].mimetype;
                             if(type === 'imageMessage') sendObj.caption = stored.msg.message[type].caption || '';
                             await sock.sendMessage(OWNER_NUMBER, sendObj);
