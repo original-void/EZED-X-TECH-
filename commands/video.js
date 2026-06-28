@@ -15,14 +15,16 @@ module.exports = {
         try {
             let url = args.includes('http')? args : (await ytSearch(args)).videos[0].url;
 
-            await execAsync(`${YT_DLP_PATH} -f "bv*[height<=480]+ba/b[height<=480]" --max-filesize 16M -o "${filePath}" "${url}"`);
+            // V10.10.8 ANTI-BLOCK FLAGS + 480p MAX for WhatsApp 16MB limit
+            const cmd = `${YT_DLP_PATH} -f "bv*[height<=480]+ba/b[height<=480]" --cookies-from-browser chrome --extractor-retries 3 --sleep-requests 1 --max-filesize 16M -o "${filePath}" "${url}"`;
+            await execAsync(cmd);
 
             const buffer = fs.readFileSync(filePath);
             await sock.sendMessage(from, { video: buffer, caption: `🎥 Video`, edit: sentMsg.key });
             fs.unlinkSync(filePath);
         } catch(e) {
             if(fs.existsSync(filePath)) fs.unlinkSync(filePath);
-            await sock.sendMessage(from, { text: `❌ Failed: ${e.message}`, edit: sentMsg.key });
+            await sock.sendMessage(from, { text: `❌ Failed: YouTube blocked us. Try again in 1 min.\n${e.message}`, edit: sentMsg.key });
         }
     }
 }
