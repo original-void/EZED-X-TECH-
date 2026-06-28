@@ -9,10 +9,15 @@ const PORT = process.env.PORT || 3000;
 const AUTH_PATH = 'auth';
 let qrCodeData = null;
 
-// HOMEPAGE WITH QR
+// 1. NUKE AUTH FOLDER ON EVERY BOOT - THIS FORCES QR
+if (fs.existsSync(AUTH_PATH)) {
+    fs.rmSync(AUTH_PATH, { recursive: true, force: true });
+    console.log(`🗑️ Deleted ${AUTH_PATH} to force new QR`);
+}
+
 app.get('/', (req, res) => {
     if (!qrCodeData) {
-        return res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Status: Waiting for QR...</h2><p>Refresh in 10s. If stuck, bot is restarting.</p>`);
+        return res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Status: Generating QR... Wait 15s</h2><meta http-equiv="refresh" content="10">`);
     }
     res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Scan QR to Connect</h2><img src="${qrCodeData}" style="width:350px;border:2px solid #000"/><p>WhatsApp > 3 dots > Linked Devices > Link a device</p>`);
 });
@@ -45,21 +50,14 @@ async function startBot() {
 
         if (qr) {
             qrCodeData = await QRCode.toDataURL(qr);
-            console.log(`✅ QR Ready on Homepage`);
+            console.log(`✅ QR Ready on Homepage NOW`);
         }
 
         if (connection === 'close') {
-            const statusCode = (lastDisconnect.error)?.output?.statusCode;
-            console.log('Connection closed. Status:', statusCode);
+            console.log('Connection closed:', lastDisconnect.error);
             qrCodeData = null;
-
-            // 1. THIS IS THE KEY FIX: If logged out, delete auth and restart
-            if (statusCode === DisconnectReason.loggedOut) {
-                console.log(`❌ Logged out. Deleting ${AUTH_PATH} folder to force new QR...`);
-                fs.rmSync(AUTH_PATH, { recursive: true, force: true });
-                startBot(); // Restart fresh
-            } else {
-                startBot(); // Normal reconnect
+            if ((lastDisconnect.error)?.output?.statusCode!== DisconnectReason.loggedOut) {
+                startBot();
             }
         } else if (connection === 'open') {
             qrCodeData = null;
