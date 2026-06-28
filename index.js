@@ -15,9 +15,9 @@ const math = require('mathjs');
 const fs = require('fs');
 const ytdl = require('ytdl-core');
 
-// V10.7: YT Anti-Block Fix for Render
+// V10.9.1: YT Anti-Block Fix for Render - FIXED
 ytdl.getInfo = ((original) => {
-  return (url, opts) => original(url, {...opts, requestOptions: { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  return (url, opts) => original(url, {...opts, requestOptions: { headers: { 'User-Agent': 'Mozilla/5.0' }}});
 })(ytdl.getInfo);
 
 const app = express();
@@ -27,7 +27,7 @@ const BOT_NAME = 'EZED X TECH';
 const OWNER_NUMBER = '87433337143370@s.whatsapp.net';
 const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
-const MISTRAL_KEY = 'leekOeO7HJToWQZ9jXlHXj596KAaEet8';
+const MISTRAL_KEY = 'PASTE_MISTRAL_KEY_HERE';
 
 // V10.9: All toggles default ON
 let autoRecording = true; let autoTyping = true; let autoViewStatus = true;
@@ -55,7 +55,7 @@ let currentQR = null; let sock;
 setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V10.9 Online</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V10.9.1 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -127,11 +127,11 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V10.9 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V10.9.1 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V10.9 HANDLER Online` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V10.9.1 HANDLER Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
@@ -197,7 +197,7 @@ async function startBot() {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V10.9*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V10.9.1*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {}; sendObj[realType.replace('Message','')] = buffer;
