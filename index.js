@@ -33,7 +33,7 @@ const notesDB = new Map(); const warningsDB = new Map();
 const groupSettings = new Map();
 const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶', '⚡', '✅', '🚀'];
 const repliedTo = new Set();
-const tttGames = new Map(); const guessGames = new Map();
+const guessGames = new Map();
 const getNumber = (jid) => jidNormalizedUser(jid).replace(/[^0-9]/g, '');
 
 const commands = new Map();
@@ -47,7 +47,7 @@ let currentQR = null; let sock;
 setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V10.10.6 Online</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V10.10.7 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -66,22 +66,6 @@ function unwrapViewOnce(msg) {
         break;
     }
     return { isVV: false };
-}
-
-function newTTT() { return { board: Array(9).fill(' ') }; }
-function tttBoard(b) {
-    return `\`\`
- ${b[0]} | ${b[1]} | ${b[2]}
----+---
- ${b[3]} | ${b[4]} | ${b[5]}
----+---
- ${b[6]} | ${b[7]} | ${b[8]}
-\`\`
-Send \`.1\` to \`.9\``;
-}
-function checkWin(b, p) {
-    const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-    return wins.some(w => w.every(i => b[i] === p));
 }
 
 async function reactToCommand(from, key) {
@@ -119,11 +103,11 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V10.10.6 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V10.10.7 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V10.10.6 HANDLER Online` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V10.10.7 HANDLER Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
@@ -187,7 +171,7 @@ async function startBot() {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V10.10.6*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V10.10.7*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {}; sendObj[realType.replace('Message','')] = buffer;
@@ -214,21 +198,6 @@ async function startBot() {
                     await reactToCommand(from, msg.key);
                     const cmdName = command.slice(1).split(' ')[0];
 
-                    if(['1','2','3','4','5','6','7','8','9'].includes(cmdName)) {
-                        const game = tttGames.get(from);
-                        if(game && game.player === sender) {
-                            const idx = parseInt(cmdName)-1;
-                            if(game.board[idx] === ' ') {
-                                game.board[idx] = 'X';
-                                if(checkWin(game.board, 'X')) { tttGames.delete(from); return sock.sendMessage(from, { text: `❌⭕ You Win!\n${tttBoard(game.board)}` }); }
-                                const botIdx = game.board.findIndex(c => c === '); // FIXED
-                                if(botIdx!== -1) game.board[botIdx] = 'O';
-                                if(checkWin(game.board, 'O')) { tttGames.delete(from); return sock.sendMessage(from, { text: `❌⭕ Bot Wins!\n${tttBoard(game.board)}` }); }
-                                await sock.sendMessage(from, { text: tttBoard(game.board) });
-                            }
-                        }
-                        continue;
-                    }
                     if(cmdName === 'g') {
                         const game = guessGames.get(from);
                         if(game) {
@@ -244,7 +213,7 @@ async function startBot() {
                     const cmd = commands.get(cmdName);
                     if (cmd) {
                         try {
-                            const ctx = { from, sender, args, mentions, isGroup, isOwner, groupSettings, getNumber, groupMeta: null, botIsAdmin: false, senderIsAdmin: false, tttGames, guessGames, notesDB, warningsDB, callAI, newTTT, tttBoard, checkWin, MENU_IMAGE_URL };
+                            const ctx = { from, sender, args, mentions, isGroup, isOwner, groupSettings, getNumber, groupMeta: null, botIsAdmin: false, senderIsAdmin: false, guessGames, notesDB, warningsDB, callAI, MENU_IMAGE_URL };
                             if(isGroup) {
                                 ctx.groupMeta = await sock.groupMetadata(from).catch(()=>null);
                                 const senderNum = getNumber(sender);
