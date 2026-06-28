@@ -1,0 +1,3 @@
+mkdir bin
+touch bin/.gitkeep
+git add bin/.gitkeep
