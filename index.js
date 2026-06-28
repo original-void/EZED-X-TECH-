@@ -49,82 +49,16 @@ let sock;
 
 setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
-// V9.0 CEO DECORATED MENU
 const MENU_TEXT = `
 ╭━━━━━━━━━━━━━╮
-┃ 👑 *${BOT_NAME} V9.0* 👑 ┃
+┃ 👑 *${BOT_NAME} V9.2* 👑 ┃
 ┃ *𝗣𝗨𝗕𝗟𝗜𝗖 + 𝗔𝗗𝗠𝗜𝗡 𝗕𝗢𝗧* ┃
 ╰━━━━━━━━━━━━━╯
-
-╭───── 🤖 *BOT STATUS* ─────╮
-┃ 🟢 *Online* : \`${autoOnline? 'ON ✅' : 'OFF ❌'}\`
-┃ 🤖 *AutoReply* : \`${autoReply? 'ON ✅' : 'OFF ❌'}\`
-┃ 👀 *ViewStatus* : \`${autoViewStatus? 'ON ✅' : 'OFF ❌'}\`
-┃ ❤️ *AutoLike* : \`${autoLikeStatus? 'ON ✅' : 'OFF ❌'}\`
-┃ 🛡️ *AntiDelete* : \`${antiDelete? 'ON ✅' : 'OFF ❌'}\`
-┃ ⌨️ *AutoTyping* : \`${autoTyping? 'ON ✅' : 'OFF ❌'}\`
-┃ 🎤 *Recording* : \`${autoRecording? 'ON ✅' : 'OFF ❌'}\`
-╰───────────────────────────╯
-
-╭──── 👑 *GROUP ADMIN* ────╮
-┃ *Owner + Group Admin Only*
-┃ 
-┃ 𝟭. \`.kick @user\` > Remove member
-┃ 𝟮. \`.add 2547...\` > Add member 
-┃ 𝟯. \`.promote @user\` > Make admin
-┃ 𝟰. \`.demote @user\` > Remove admin
-┃ 𝟱. \`.mute\` > Lock group
-┃ 𝟲. \`.unmute\` > Unlock group
-┃ 𝟳. \`.warn @user\` > 3 warns = Kick
-┃ 𝟴. \`.warnings @user\` > Check warns
-┃ 𝟵. \`.tagall\` > Mention all
-┃ 🔟 \`.hidetag text\` > Hidden tag
-┃ 𝟭 \`.antilink on/off\` > Block links
-┃ 𝟭𝟮 \`.welcome on/off\` > Welcome msg
-╰──────────────────────────╯
-
-╭──── ✨ *AI + TOOLS* ────╮
-┃ *Public - DM or Group*
-┃
-┃ ✨ \`.summarize\` > Reply long text
-┃ 🌍 \`.translate sw/en/fr\` > Translate text
-┃ ✅ \`.grammar\` > Fix grammar
-┃ 🧮 \`.calc 2+2*5\` > Calculator
-┃ ⬇️ \`.video [url]\` > TikTok/YT
-┃ 🗒️ \`.notes save/list/del\` > Save notes
-╰─────────────────────────╯
-
-╭──── 🎮 *GAMES* ────╮
-┃ 🎯 \`.tictactoe\` > X vs O game
-┃ 🔢 \`.guess\` > Guess 1-100
-┃ ✊ \`.rps\` > Rock Paper Scissors
-╰───────────────────╯
-
-╭──── ⚙️ *SYSTEM* ────╮
-┃ 📜 \`.menu\` > Show menu
-┃ 🏓 \`.ping\` > Check speed
-┃ 🕒 \`.time\` > KE Time
-┃ 🆔 \`.jid\` > Get chat ID
-┃ 👑 \`.owner\` > Contact owner
-┃ 🗂️ \`.cache\` > Cache stats
-┃ 🧪 \`.logs\` > VV count
-╰───────────────────╯
-
-╭──── 🔧 *OWNER TOGGLES* ────╮
-┃ \`.aonline.on/off\` \`.autoreply.on/off\`
-┃ \`.setreply text\` \`.aview.on/off\`
-┃ \`.alike.on/off\` \`.aread.on/off\`
-┃ \`.areact.on/off\` \`.atype.on/off\`
-┃ \`.arec.on/off\` \`.antidelete.on/off\`
-╰────────────────────────────╯
-
-> *Tip:* Use \`. \` or \`/ \` for all commands
-> *Owner:* wa.me/254769532338
-> *Version:* V9.0 CEO
+> *Tip:* Use. or / for all commands
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V9.0 Online</h1><p>Status: Online</p>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V9.2 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -183,7 +117,6 @@ async function callAI(prompt) {
         });
         return res.data.choices[0].message.content;
     } catch (e) {
-        console.log('AI Error:', e.response?.data || e.message);
         return "❌ AI Error. Check key or quota.";
     }
 }
@@ -213,17 +146,16 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V9.0 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V9.2 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V9.0 CEO Edition Online` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V9.2 DEBUG Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
     });
 
-    // WELCOME NEW MEMBERS - NO mentions: KEY = NO CRASH
     sock.ev.on('group-participants.update', async (update) => {
         const { id, participants, action } = update;
         const settings = groupSettings.get(id) || {};
@@ -236,7 +168,6 @@ async function startBot() {
         }
     });
 
-    // AUTO VIEW + AUTO LIKE STATUS
     sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
             if (msg.key.remoteJid === 'status@broadcast' && msg.key.participant &&!msg.key.fromMe) {
@@ -272,13 +203,12 @@ async function startBot() {
                 const args = text.slice(text.split(' ')[0].length).trim();
                 const mentions = msg.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
-                // GROUP ANTILINK
                 if (isGroup) {
                     const settings = groupSettings.get(from) || {};
                     if (settings.antilink &&!isFromMe && (text.includes('http://') || text.includes('https://'))) {
                         const groupMeta = await sock.groupMetadata(from).catch(()=>null);
                         if(groupMeta) {
-                            const isAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id) === sender)?.admin;
+                            const isAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).split(':')[0] + '@s.whatsapp.net' === jidNormalizedUser(sender).split(':')[0] + '@s.whatsapp.net')?.admin;
                             if (!isAdmin) {
                                 await sock.sendMessage(from, { delete: msg.key }).catch(()=>{});
                                 await sock.sendMessage(from, { text: `🚫 @${sender.split('@')[0]} Links not allowed`, mentions: [sender] });
@@ -287,12 +217,10 @@ async function startBot() {
                     }
                 }
 
-                // ANTI DELETE CACHE
                 if (antiDelete &&!isGroup &&!isFromMe) {
                     msgStore.set(msg.key.id, { msg, from, sender, timestamp: msg.messageTimestamp });
                 }
 
-                // AUTO REPLY DM
                 if (autoReply &&!isGroup &&!isFromMe &&!isOwner &&!repliedTo.has(from)) {
                     await sock.sendPresenceUpdate('composing', from);
                     await new Promise(r => setTimeout(r, 800));
@@ -301,12 +229,11 @@ async function startBot() {
                     setTimeout(() => repliedTo.delete(from), 1000 * 60 * 30);
                 }
 
-                // VIEW ONCE BYPASS
                 if (!isGroup &&!isFromMe) {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V9.0*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V9.2*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {};
@@ -335,20 +262,36 @@ async function startBot() {
                     await reactToCommand(from, msg.key);
                 }
 
-                // ===== GROUP ADMIN COMMANDS =====
+                // ===== GROUP ADMIN COMMANDS V9.2 DEBUG =====
                 if (isGroup && isOwner) {
                     const groupMeta = await sock.groupMetadata(from).catch(()=>null);
-                    if(!groupMeta) continue;
+                    if(!groupMeta) return sock.sendMessage(from, { text: '❌ Could not get group data' });
 
-                    const isAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id) === sender)?.admin;
+                    const senderJid = jidNormalizedUser(sender).split(':')[0] + '@s.whatsapp.net';
                     const botJid = jidNormalizedUser(sock.user.id).split(':')[0] + '@s.whatsapp.net';
-const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).split(':')[0] + '@s.whatsapp.net' === botJid)?.admin;
                     
-                    if(!botIsAdmin && ['.kick','.add','.promote','.demote','.mute','.unmute'].includes(command.split(' ')[0])){
-                        return sock.sendMessage(from, { text: '❌ Bot must be Admin to use this 👑' });
+                    const senderIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).split(':')[0] + '@s.whatsapp.net' === senderJid)?.admin;
+                    const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).split(':')[0] + '@s.whatsapp.net' === botJid)?.admin;
+                    
+                    if(command.startsWith('.kick') || command.startsWith('.demote') || command.startsWith('.promote') || command.startsWith('.add')) {
+                        await sock.sendMessage(OWNER_NUMBER, { 
+                            text: `🧪 *DEBUG V9.2*
+Bot JID: ${botJid}
+Bot Admin: ${botIsAdmin}
+You JID: ${senderJid} 
+You Admin: ${senderIsAdmin? 'true' : 'false'}` 
+                        });
                     }
 
-                    if (command.startsWith('.kick') && isAdmin) {
+                    if(!botIsAdmin && ['.kick','.add','.promote','.demote','.mute','.unmute'].includes(command.split(' ')[0])){
+                        return sock.sendMessage(from, { text: `❌ Bot must be Admin to use this 👑\nBot Admin = ${botIsAdmin}` });
+                    }
+
+                    if(!senderIsAdmin && ['.kick','.add','.promote','.demote','.mute','.unmute'].includes(command.split(' ')[0])){
+                        return sock.sendMessage(from, { text: `❌ You must be Admin to use this 👑\nYou Admin = ${senderIsAdmin}` });
+                    }
+
+                    if (command.startsWith('.kick')) {
                         const target = mentions[0];
                         if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.kick @user`' });
                         await sock.groupParticipantsUpdate(from, [target], 'remove');
@@ -356,7 +299,7 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                         continue;
                     }
 
-                    if (command.startsWith('.add') && isAdmin) {
+                    if (command.startsWith('.add')) {
                         const num = args.replace(/[^0-9]/g, '');
                         if (!num) return sock.sendMessage(from, { text: '👑 Usage: `.add 2547...`' });
                         await sock.groupParticipantsUpdate(from, [`${num}@s.whatsapp.net`], 'add');
@@ -364,7 +307,7 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                         continue;
                     }
 
-                    if (command.startsWith('.promote') && isAdmin) {
+                    if (command.startsWith('.promote')) {
                         const target = mentions[0];
                         if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.promote @user`' });
                         await sock.groupParticipantsUpdate(from, [target], 'promote');
@@ -372,7 +315,7 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                         continue;
                     }
 
-                    if (command.startsWith('.demote') && isAdmin) {
+                    if (command.startsWith('.demote')) {
                         const target = mentions[0];
                         if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.demote @user`' });
                         await sock.groupParticipantsUpdate(from, [target], 'demote');
@@ -380,19 +323,19 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                         continue;
                     }
 
-                    if (command === '.mute' && isAdmin) {
+                    if (command === '.mute') {
                         await sock.groupSettingUpdate(from, 'announcement');
                         await sock.sendMessage(from, { text: '🔒 Group muted' });
                         continue;
                     }
 
-                    if (command === '.unmute' && isAdmin) {
+                    if (command === '.unmute') {
                         await sock.groupSettingUpdate(from, 'not_announcement');
                         await sock.sendMessage(from, { text: '🔓 Group unmuted' });
                         continue;
                     }
 
-                    if (command.startsWith('.warn') && isAdmin) {
+                    if (command.startsWith('.warn')) {
                         const target = mentions[0];
                         if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.warn @user`' });
                         if (!warningsDB.has(from)) warningsDB.set(from, {});
@@ -407,7 +350,7 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                         continue;
                     }
 
-                    if (command.startsWith('.warnings') && isAdmin) {
+                    if (command.startsWith('.warnings')) {
                         const target = mentions[0];
                         if (!target) return sock.sendMessage(from, { text: '👑 Usage: `.warnings @user`' });
                         const count = warningsDB.get(from)?.[target] || 0;
@@ -415,7 +358,7 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                         continue;
                     }
 
-                    if (command === '.tagall' && isAdmin) {
+                    if (command === '.tagall') {
                         const members = groupMeta.participants.map(p => p.id);
                         let txt = `📢 *Tag All ${members.length}*\n\n`;
                         members.forEach(m => txt += `@${m.split('@')[0]} `);
@@ -423,14 +366,14 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                         continue;
                     }
 
-                    if (command.startsWith('.hidetag') && isAdmin) {
+                    if (command.startsWith('.hidetag')) {
                         const msgTxt = args || '👀';
                         const members = groupMeta.participants.map(p => p.id);
                         await sock.sendMessage(from, { text: msgTxt, mentions: members });
                         continue;
                     }
 
-                    if (command.startsWith('.antilink') && isAdmin) {
+                    if (command.startsWith('.antilink')) {
                         const state = args;
                         if (!groupSettings.has(from)) groupSettings.set(from, {});
                         groupSettings.get(from).antilink = state === 'on';
@@ -438,7 +381,7 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                         continue;
                     }
 
-                    if (command.startsWith('.welcome') && isAdmin) {
+                    if (command.startsWith('.welcome')) {
                         const state = args;
                         if (!groupSettings.has(from)) groupSettings.set(from, {});
                         groupSettings.get(from).welcome = state === 'on';
@@ -447,7 +390,6 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                     }
                 }
 
-                // ===== PUBLIC COMMANDS =====
                 if (command.startsWith('.summarize')) {
                     const targetText = quotedText || args;
                     if (!targetText) return sock.sendMessage(from, { text: '📄 Reply to text with `.summarize`' });
@@ -516,7 +458,6 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                     continue;
                 }
 
-                // GAMES
                 if (command === '.tictactoe') {
                     tttGames.set(from, newTTT());
                     await sock.sendMessage(from, { text: `❌⭕ *TicTacToe*\nYou=X Bot=O\n${tttBoard(Array(9).fill(' '))}` });
@@ -563,7 +504,6 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                     continue;
                 }
 
-                // SYSTEM
                 switch (command) {
                     case '.menu': await sock.sendMessage(from, { image: { url: MENU_IMAGE_URL }, caption: MENU_TEXT }); break;
                     case '.ping': const s = Date.now(); await sock.sendMessage(from, { text: `🏓 Pong \`${Date.now() - s}ms\`` }); break;
@@ -574,7 +514,6 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
                     case '.logs': await sock.sendMessage(from, { text: `🧪 VV Count:\`${vvStore.size}\`` }); break;
                 }
 
-                // OWNER TOGGLES
                 if(isOwner){
                     switch (command) {
                         case '.aonline on': autoOnline = true; await sock.sendMessage(from, { text: '🟢 Online: ON' }); break;
@@ -608,7 +547,6 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
         } catch(e) { console.log('Error:', e); }
     });
 
-    // ANTIDELETE
     sock.ev.on('messages.update', async (updates) => {
         for (const { key, update } of updates) {
             if (antiDelete && update.message === null &&!key.remoteJid?.endsWith('@g.us')) {
@@ -634,7 +572,6 @@ const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).spli
             }
         }
     });
-
 }
 
 startBot();
