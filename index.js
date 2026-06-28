@@ -13,12 +13,6 @@ const QRCode = require('qrcode');
 const axios = require('axios');
 const math = require('mathjs');
 const fs = require('fs');
-const ytdl = require('ytdl-core');
-
-// V10.9.1: YT Anti-Block Fix for Render - FIXED
-ytdl.getInfo = ((original) => {
-  return (url, opts) => original(url, {...opts, requestOptions: { headers: { 'User-Agent': 'Mozilla/5.0' }}});
-})(ytdl.getInfo);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,9 +21,8 @@ const BOT_NAME = 'EZED X TECH';
 const OWNER_NUMBER = '87433337143370@s.whatsapp.net';
 const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
-const MISTRAL_KEY = 'leekOeO7HJToWQZ9jXlHXj596KAaEet8';
+const MISTRAL_KEY = 'PASTE_MISTRAL_KEY_HERE';
 
-// V10.9: All toggles default ON
 let autoRecording = true; let autoTyping = true; let autoViewStatus = true;
 let autoLikeStatus = true; let autoReadMessages = false; let autoReactDM = false;
 let antiDelete = true; let autoOnline = true; let autoReply = false;
@@ -43,7 +36,6 @@ const repliedTo = new Set();
 const tttGames = new Map(); const guessGames = new Map();
 const getNumber = (jid) => jidNormalizedUser(jid).replace(/[^0-9]/g, '');
 
-// COMMAND HANDLER
 const commands = new Map();
 const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
 for (const file of commandFiles) {
@@ -55,7 +47,7 @@ let currentQR = null; let sock;
 setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V10.9.1 Online</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V10.10.5 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -127,11 +119,11 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V10.9.1 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V10.10.5 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V10.9.1 HANDLER Online` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V10.10.5 HANDLER Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
@@ -171,7 +163,6 @@ async function startBot() {
                 const args = text.slice(text.split(' ')[0].length).trim();
                 const mentions = msg.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
-                // Group Antilink
                 if (isGroup) {
                     const settings = groupSettings.get(from) || {};
                     if (settings.antilink &&!isFromMe && (text.includes('http://') || text.includes('https://'))) {
@@ -186,7 +177,6 @@ async function startBot() {
                     }
                 }
 
-                // AntiDelete + AutoReply + ViewOnce
                 if (antiDelete &&!isGroup &&!isFromMe) { msgStore.set(msg.key.id, { msg, from, sender, timestamp: msg.messageTimestamp }); }
                 if (autoReply &&!isGroup &&!isFromMe &&!isOwner &&!repliedTo.has(from)) {
                     await sock.sendPresenceUpdate('composing', from); await new Promise(r => setTimeout(r, 800));
@@ -197,7 +187,7 @@ async function startBot() {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V10.9.1*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V10.10.5*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {}; sendObj[realType.replace('Message','')] = buffer;
@@ -216,7 +206,6 @@ async function startBot() {
                 const isAllowedUser = isOwner ||!isGroup;
                 if (!isAllowedUser) continue;
 
-                // V10.9: Presence toggles
                 if (autoOnline) await sock.sendPresenceUpdate('available', from);
                 if (autoTyping) await sock.sendPresenceUpdate('composing', from);
                 if (autoRecording) await sock.sendPresenceUpdate('recording', from);
@@ -225,7 +214,6 @@ async function startBot() {
                     await reactToCommand(from, msg.key);
                     const cmdName = command.slice(1).split(' ')[0];
 
-                    // Game Handlers
                     if(['1','2','3','4','5','6','7','8','9'].includes(cmdName)) {
                         const game = tttGames.get(from);
                         if(game && game.player === sender) {
@@ -233,7 +221,7 @@ async function startBot() {
                             if(game.board[idx] === ' ') {
                                 game.board[idx] = 'X';
                                 if(checkWin(game.board, 'X')) { tttGames.delete(from); return sock.sendMessage(from, { text: `❌⭕ You Win!\n${tttBoard(game.board)}` }); }
-                                const botIdx = game.board.findIndex(c => c === ' ');
+                                const botIdx = game.board.findIndex(c => c === ');
                                 if(botIdx!== -1) game.board[botIdx] = 'O';
                                 if(checkWin(game.board, 'O')) { tttGames.delete(from); return sock.sendMessage(from, { text: `❌⭕ Bot Wins!\n${tttBoard(game.board)}` }); }
                                 await sock.sendMessage(from, { text: tttBoard(game.board) });
@@ -269,7 +257,6 @@ async function startBot() {
                     }
                 }
 
-                // V10.9: OWNER TOGGLES
                 if(isOwner){
                     switch (command) {
                         case '.aonline on': autoOnline = true; await sock.sendMessage(from, { text: '🟢 Online: ON' }); break;
