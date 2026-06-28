@@ -20,7 +20,7 @@ const BOT_NAME = 'EZED X TECH';
 const OWNER_NUMBER = '254769532338@s.whatsapp.net';
 const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
-const MISTRAL_KEY = 'PASTE_MISTRAL_KEY_HERE';
+const MISTRAL_KEY = 'leekOeO7HJToWQZ9jXlHXj596KAaEet8';
 
 let autoRecording = true;
 let autoTyping = true;
@@ -341,8 +341,8 @@ async function startBot() {
                     if(!groupMeta) continue;
 
                     const isAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id) === sender)?.admin;
-                    const botJid = jidNormalizedUser(sock.user.id);
-                    const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id) === botJid)?.admin;
+                    const botJid = jidNormalizedUser(sock.user.id).split(':')[0] + '@s.whatsapp.net';
+const botIsAdmin = groupMeta.participants.find(p => jidNormalizedUser(p.id).split(':')[0] + '@s.whatsapp.net' === botJid)?.admin;
                     
                     if(!botIsAdmin && ['.kick','.add','.promote','.demote','.mute','.unmute'].includes(command.split(' ')[0])){
                         return sock.sendMessage(from, { text: '❌ Bot must be Admin to use this 👑' });
