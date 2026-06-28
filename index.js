@@ -21,7 +21,7 @@ const BOT_NAME = 'EZED X TECH';
 const OWNER_NUMBER = '87433337143370@s.whatsapp.net';
 const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
-const MISTRAL_KEY = 'PASTE_MISTRAL_KEY_HERE';
+const MISTRAL_KEY = 'leekOeO7HJToWQZ9jXlHXj596KAaEet8';
 
 let autoRecording = true; let autoTyping = true; let autoViewStatus = true;
 let autoLikeStatus = true; let autoReadMessages = false; let autoReactDM = false;
@@ -47,7 +47,7 @@ let currentQR = null; let sock;
 setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V10.10.5 Online</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V10.10.6 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -119,11 +119,11 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V10.10.5 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V10.10.6 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V10.10.5 HANDLER Online` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V10.10.6 HANDLER Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
@@ -187,7 +187,7 @@ async function startBot() {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V10.10.5*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V10.10.6*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {}; sendObj[realType.replace('Message','')] = buffer;
@@ -221,7 +221,7 @@ async function startBot() {
                             if(game.board[idx] === ' ') {
                                 game.board[idx] = 'X';
                                 if(checkWin(game.board, 'X')) { tttGames.delete(from); return sock.sendMessage(from, { text: `❌⭕ You Win!\n${tttBoard(game.board)}` }); }
-                                const botIdx = game.board.findIndex(c => c === ');
+                                const botIdx = game.board.findIndex(c => c === '); // FIXED
                                 if(botIdx!== -1) game.board[botIdx] = 'O';
                                 if(checkWin(game.board, 'O')) { tttGames.delete(from); return sock.sendMessage(from, { text: `❌⭕ Bot Wins!\n${tttBoard(game.board)}` }); }
                                 await sock.sendMessage(from, { text: tttBoard(game.board) });
