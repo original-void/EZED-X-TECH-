@@ -1,30 +1,40 @@
 const ytSearch = require('yt-search');
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
-const { promisify } = require('util');
-const execAsync = promisify(exec);
-const YT_DLP_PATH = path.join(__dirname, '../bin/yt-dlp');
+const axios = require('axios');
 
 module.exports = {
     name: 'video',
+    desc: 'Download video as MP4 file',
     async execute(sock, msg, { from, args }) {
         if(!args) return sock.sendMessage(from, { text: '🎥 Usage: `.video name` or url' });
-        const sentMsg = await sock.sendMessage(from, { text: `🎥 Downloading: ${args}...` });
-        const filePath = path.join(__dirname, `../temp_${Date.now()}.mp4`);
+        
+        const sentMsg = await sock.sendMessage(from, { text: `🎥 Searching: *${args}*...` });
         try {
             let url = args.includes('http')? args : (await ytSearch(args)).videos[0].url;
 
-            // V10.10.9 BYPASS FLAGS - NO COOKIES + 480p MAX
-            const cmd = `${YT_DLP_PATH} -f "bv*[height<=480]+ba/b[height<=480]" --user-agent "Mozilla/5.0" --extractor-args "youtube:player_client=android" --extractor-retries 3 --sleep-requests 1 --max-filesize 16M -o "${filePath}" "${url}"`;
-            await execAsync(cmd);
+            await sock.sendMessage(from, { text: `⬇️ Downloading video...`, edit: sentMsg.key });
 
-            const buffer = fs.readFileSync(filePath);
-            await sock.sendMessage(from, { video: buffer, caption: `🎥 Video`, edit: sentMsg.key });
-            fs.unlinkSync(filePath);
+            // 1. Get 480p MP4 link from Cobalt. 480p = under 16MB for WhatsApp
+            const res = await axios.post('https://api.cobalt.tools/api/json', {
+                url: url,
+                vQuality: "480",
+                isAudioOnly: false,
+                filenameStyle: "classic"
+            }, { headers: { 'Accept': 'application/json', 'Origin': 'https://cobalt.tools' } });
+
+            if(res.data.status!== 'success') throw new Error(res.data.error?.code || 'Cobalt API failed');
+
+            // 2. DOWNLOAD THE FILE TO BOT RAM
+            const videoBuffer = (await axios.get(res.data.url, { responseType: 'arraybuffer', timeout: 90000, maxContentLength: 16 * 1024 * 1024 })).data;
+            
+            // 3. SEND THE FILE, NOT LINK
+            await sock.sendMessage(from, { video: videoBuffer, caption: `🎥 Video` }, { edit: sentMsg.key });
+
         } catch(e) {
-            if(fs.existsSync(filePath)) fs.unlinkSync(filePath);
-            await sock.sendMessage(from, { text: `❌ Failed: ${e.message}`, edit: sentMsg.key });
+            console.log(e);
+            if(e.code === 'ERR_BAD_REQUEST') {
+                return sock.sendMessage(from, { text: `❌ Video too big for WhatsApp >16MB. Try a shorter video.`, edit: sentMsg.key });
+            }
+            await sock.sendMessage(from, { text: `❌ Failed: ${e.message}\n\nTip: API is rate limited. Wait 1 min.`, edit: sentMsg.key });
         }
     }
 }
