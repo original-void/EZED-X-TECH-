@@ -226,9 +226,9 @@ async function startBot() {
         if (action === 'add' && settings.welcome) {
             for (const user of participants) {
                 await sock.sendMessage(id, { 
-                    text: `👋 Welcome @${user.split('@')[0]} to the group!\nEnjoy your stay ✅`, 
-                    mentions: 
-                });
+    text: `👋 Welcome @${user.split('@')[0]} to the group!\nEnjoy your stay ✅`, 
+    mentions: 
+});
             }
         }
     });
