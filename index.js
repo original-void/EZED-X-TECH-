@@ -44,16 +44,7 @@ const repliedTo = new Set();
 const tttGames = new Map();
 const guessGames = new Map();
 
-// V9.4 LID CANONICALIZER - FIXES UNDEFINED ADMIN
-const lidToPnMap = new Map(); // LID -> PhoneNumber cache
-
-const resolveJid = (jid) => {
-    const norm = jidNormalizedUser(jid).replace(/:\d+@/, '@');
-    if(norm.endsWith('@lid')) {
-        return lidToPnMap.get(norm) || norm; // fallback if no mapping yet
-    }
-    return norm;
-};
+const getNumber = (jid) => jidNormalizedUser(jid).replace(/[^0-9]/g, '');
 
 let currentQR = null;
 let sock;
@@ -62,7 +53,7 @@ setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
 const MENU_TEXT = `
 ╭━━━━━━━━━━━━━╮
-┃ 👑 *${BOT_NAME} V9.4* 👑 ┃
+┃ 👑 *${BOT_NAME} V9.5* 👑 ┃
 ┃ *𝗣𝗨𝗕𝗟𝗜𝗖 + 𝗔𝗗𝗠𝗜𝗡 𝗕𝗢𝗧* ┃
 ╰━━━━━━━━━━━━━╯
 
@@ -99,7 +90,7 @@ const MENU_TEXT = `
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V9.4 Online</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V9.5 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -187,36 +178,13 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V9.4 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V9.5 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V9.4 LID FIX Online` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V9.5 NUMBERS ONLY Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
-        }
-    });
-
-    // V9.4: Learn LID->PN mapping from every message
-    sock.ev.on('messages.upsert', async ({messages}) => {
-        for(const m of messages) {
-            try {
-                if(m.key.participant) {
-                    const lid = jidNormalizedUser(m.key.participant).replace(/:\d+@/, '@');
-                    const pn = jidNormalizedUser(m.key.remoteJid).replace(/:\d+@/, '@');
-                    if(lid.endsWith('@lid') && pn.endsWith('@s.whatsapp.net')) {
-                        lidToPnMap.set(lid, pn);
-                    }
-                }
-                if(m.key.remoteJid?.endsWith('@g.us') && m.key.participant) {
-                    const lid = jidNormalizedUser(m.key.participant).replace(/:\d+@/, '@');
-                    const participants = await sock.groupMetadata(m.key.remoteJid).catch(()=>null);
-                    if(participants) {
-                        const pnEntry = participants.participants.find(p => p.id.endsWith('@s.whatsapp.net') && p.id.split('@')[0] === lid.split('@')[0]);
-                        if(pnEntry) lidToPnMap.set(lid, pnEntry.id);
-                    }
-                }
-            } catch(e){}
         }
     });
 
@@ -272,7 +240,7 @@ async function startBot() {
                     if (settings.antilink &&!isFromMe && (text.includes('http://') || text.includes('https://'))) {
                         const groupMeta = await sock.groupMetadata(from).catch(()=>null);
                         if(groupMeta) {
-                            const isAdmin = groupMeta.participants.find(p => resolveJid(p.id) === resolveJid(sender))?.admin;
+                            const isAdmin = groupMeta.participants.find(p => getNumber(p.id) === getNumber(sender))?.admin;
                             if (!isAdmin) {
                                 await sock.sendMessage(from, { delete: msg.key }).catch(()=>{});
                                 await sock.sendMessage(from, { text: `🚫 @${sender.split('@')[0]} Links not allowed`, mentions: [sender] });
@@ -297,7 +265,7 @@ async function startBot() {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V9.4*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V9.5*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {};
@@ -326,23 +294,32 @@ async function startBot() {
                     await reactToCommand(from, msg.key);
                 }
 
-                // ===== GROUP ADMIN COMMANDS V9.4 LID FIX =====
+                // ===== GROUP ADMIN COMMANDS V9.5 NUMBERS ONLY =====
                 if (isGroup && isOwner) {
                     const groupMeta = await sock.groupMetadata(from).catch(()=>null);
                     if(!groupMeta) return sock.sendMessage(from, { text: '❌ Could not get group data' });
 
-                    const senderJid = resolveJid(sender);
-                    const botJid = resolveJid(sock.user.id);
+                    const senderNum = getNumber(sender);
+                    const botNum = getNumber(sock.user.id);
                     
-                    const senderIsAdmin = groupMeta.participants.find(p => resolveJid(p.id) === senderJid)?.admin;
-                    const botIsAdmin = groupMeta.participants.find(p => resolveJid(p.id) === botJid)?.admin;
+                    const senderIsAdmin = groupMeta.participants.find(p => getNumber(p.id) === senderNum)?.admin;
+                    const botIsAdmin = groupMeta.participants.find(p => getNumber(p.id) === botNum)?.admin;
                     
+                    // DEBUG
+                    if(command.startsWith('.kick')) {
+                        await sock.sendMessage(OWNER_NUMBER, { 
+                            text: `🧪 *DEBUG V9.5*
+Bot Num: ${botNum} Admin: ${botIsAdmin}
+You Num: ${senderNum} Admin: ${senderIsAdmin}` 
+                        });
+                    }
+
                     if(!botIsAdmin && ['.kick','.add','.promote','.demote','.mute','.unmute'].includes(command.split(' ')[0])){
-                        return sock.sendMessage(from, { text: `❌ Bot must be Admin to use this 👑\nBot Admin = ${botIsAdmin}` });
+                        return sock.sendMessage(from, { text: `❌ Bot must be Admin 👑\nBot Admin = ${botIsAdmin}` });
                     }
 
                     if(!senderIsAdmin && ['.kick','.add','.promote','.demote','.mute','.unmute'].includes(command.split(' ')[0])){
-                        return sock.sendMessage(from, { text: `❌ You must be Admin to use this 👑\nYou Admin = ${senderIsAdmin}` });
+                        return sock.sendMessage(from, { text: `❌ You must be Admin 👑\nYou Admin = ${senderIsAdmin}` });
                     }
 
                     if (command.startsWith('.kick')) {
