@@ -27,7 +27,7 @@ const BOT_NAME = 'EZED X TECH';
 const OWNER_NUMBER = '87433337143370@s.whatsapp.net';
 const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
-const MISTRAL_KEY = 'PASTE_MISTRAL_KEY_HERE';
+const MISTRAL_KEY = 'leekOeO7HJToWQZ9jXlHXj596KAaEet8';
 
 // V10.9: All toggles default ON
 let autoRecording = true; let autoTyping = true; let autoViewStatus = true;
