@@ -6,31 +6,27 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-let qrCodeData = null; // STORE QR IMAGE HERE
+let qrCodeData = null;
 
-// 1. HOMEPAGE = QR CODE PAGE
+// HOMEPAGE WITH QR
 app.get('/', (req, res) => {
     if (!qrCodeData) {
-        return res.send(`
-            <h1>🤖 Ezed-X-Tech Bot</h1>
-            <h2>Status: Waiting for QR...</h2>
-            <p>Refresh this page in 10 seconds if QR doesn't show.</p>
-        `);
+        return res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Status: Waiting for QR...</h2><p>Refresh in 10s</p>`);
     }
-    res.send(`
-        <h1>🤖 Ezed-X-Tech Bot</h1>
-        <h2>Scan QR to Connect</h2>
-        <img src="${qrCodeData}" style="width:350px;border:2px solid #000"/>
-        <p>WhatsApp > 3 dots > Linked Devices > Link a device</p>
-        <p><b>Note:</b> QR expires in 20s. Restart Render if it disappears.</p>
-    `);
+    res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Scan QR to Connect</h2><img src="${qrCodeData}" style="width:350px;border:2px solid #000"/><p>WhatsApp > 3 dots > Linked Devices > Link a device</p>`);
 });
 
 app.listen(PORT, () => console.log(`✅ Web on ${PORT}`));
 
 const prefix = '.';
 const commands = new Map();
-fs.readdirSync('./commands').forEach(file => commands.set(require(`./commands/${file}`).name, require(`./commands/${file}`)));
+const commandsPath = path.join(__dirname, 'commands');
+if (fs.existsSync(commandsPath)) {
+    fs.readdirSync(commandsPath).forEach(file => {
+        const command = require(path.join(commandsPath, file));
+        commands.set(command.name, command);
+    });
+}
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth');
@@ -42,19 +38,22 @@ async function startBot() {
     });
 
     sock.ev.on('creds.update', saveCreds);
+
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        if (qr) { // 2. WHEN QR COMES, CONVERT IT TO IMAGE
+        if (qr) {
             qrCodeData = await QRCode.toDataURL(qr);
             console.log(`✅ QR Ready on Homepage`);
         }
 
         if (connection === 'close') {
-            qrCodeData = null; // Clear QR if bot dies
-            if ((lastDisconnect.error)?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
+            qrCodeData = null;
+            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode!== DisconnectReason.loggedOut;
+            console.log('Connection closed. Reconnecting:', shouldReconnect);
+            if (shouldReconnect) startBot();
         } else if (connection === 'open') {
-            qrCodeData = null; // Hide QR once connected
+            qrCodeData = null;
             console.log('✅ Bot Connected!');
         }
     });
@@ -65,10 +64,19 @@ async function startBot() {
         const from = msg.key.remoteJid;
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         if (!text.startsWith(prefix)) return;
+        
         const args = text.slice(prefix.length).trim().split(/ +/);
         const cmdName = args.shift().toLowerCase();
         const command = commands.get(cmdName);
-        if (command) { try { await command.execute(sock, msg, { from, args: args.join(' ') }); } catch (e) { sock.sendMessage(from, { text: `❌ Error: ${e.message}` }); }
+        
+        if (command) { 
+            try { 
+                await command.execute(sock, msg, { from, args: args.join(' ') }); 
+            } catch (e) { 
+                console.log(e);
+                sock.sendMessage(from, { text: `❌ Error: ${e.message}` }); 
+            }
+        }
     });
 }
 startBot();
