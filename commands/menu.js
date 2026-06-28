@@ -50,8 +50,8 @@ module.exports = {
 ║ 🔄.logout ➤ Logout Bot
 ╚═══════════════╝
 
-> .arec off = No more "recording..." 
-> .atype off = No more "typing..."
+> .POWERED BY EZED NYANUGA..." 
+> .ASSISTED BY JUNIOR AI..."
 `;
         await sock.sendMessage(from, { image: { url: MENU_IMAGE_URL }, caption: MENU_TEXT });
     }
