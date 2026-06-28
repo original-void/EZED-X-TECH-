@@ -6,12 +6,13 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const AUTH_PATH = 'auth';
 let qrCodeData = null;
 
 // HOMEPAGE WITH QR
 app.get('/', (req, res) => {
     if (!qrCodeData) {
-        return res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Status: Waiting for QR...</h2><p>Refresh in 10s</p>`);
+        return res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Status: Waiting for QR...</h2><p>Refresh in 10s. If stuck, bot is restarting.</p>`);
     }
     res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Scan QR to Connect</h2><img src="${qrCodeData}" style="width:350px;border:2px solid #000"/><p>WhatsApp > 3 dots > Linked Devices > Link a device</p>`);
 });
@@ -29,7 +30,7 @@ if (fs.existsSync(commandsPath)) {
 }
 
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState('auth');
+    const { state, saveCreds } = await useMultiFileAuthState(AUTH_PATH);
     
     const sock = makeWASocket({ 
         auth: state, 
@@ -48,10 +49,18 @@ async function startBot() {
         }
 
         if (connection === 'close') {
+            const statusCode = (lastDisconnect.error)?.output?.statusCode;
+            console.log('Connection closed. Status:', statusCode);
             qrCodeData = null;
-            const shouldReconnect = (lastDisconnect.error)?.output?.statusCode!== DisconnectReason.loggedOut;
-            console.log('Connection closed. Reconnecting:', shouldReconnect);
-            if (shouldReconnect) startBot();
+
+            // 1. THIS IS THE KEY FIX: If logged out, delete auth and restart
+            if (statusCode === DisconnectReason.loggedOut) {
+                console.log(`❌ Logged out. Deleting ${AUTH_PATH} folder to force new QR...`);
+                fs.rmSync(AUTH_PATH, { recursive: true, force: true });
+                startBot(); // Restart fresh
+            } else {
+                startBot(); // Normal reconnect
+            }
         } else if (connection === 'open') {
             qrCodeData = null;
             console.log('✅ Bot Connected!');
