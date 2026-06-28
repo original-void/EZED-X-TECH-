@@ -1,17 +1,11 @@
 {
-  "name": "ezed-x-tech",
-  "version": "10.10.5",
+  "name": "ezed-x-tech-bot",
+  "version": "10.12.0",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
+  "scripts": { "start": "node index.js" },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.5",
     "axios": "^1.7.2",
-    "express": "^4.19.2",
-    "mathjs": "^12.4.2",
-    "pino": "^9.3.2",
-    "qrcode": "^1.5.4",
-    "yt-search": "^2.10.4"
+    "yt-search": "^2.12.0"
   }
 }
