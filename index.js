@@ -1,7 +1,7 @@
 const express = require('express');
-const { 
-    default: makeWASocket, 
-    DisconnectReason, 
+const {
+    default: makeWASocket,
+    DisconnectReason,
     useMultiFileAuthState,
     fetchLatestBaileysVersion,
     jidNormalizedUser,
@@ -13,30 +13,37 @@ const QRCode = require('qrcode');
 const axios = require('axios');
 const math = require('mathjs');
 const fs = require('fs');
+const ytdl = require('ytdl-core');
+
+// V10.7: YT Anti-Block Fix for Render
+ytdl.getInfo = ((original) => {
+  return (url, opts) => original(url, {...opts, requestOptions: { headers: { 'User-Agent': 'Mozilla/5.0' } });
+})(ytdl.getInfo);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const BOT_NAME = 'EZED X TECH';
-const OWNER_NUMBER = '87433337143370@s.whatsapp.net'; // V9.7: Your LID from.jid
+const OWNER_NUMBER = '87433337143370@s.whatsapp.net';
 const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
-const MISTRAL_KEY = 'PASTE_MISTRAL_KEY_HERE';
+const MISTRAL_KEY = 'leekOeO7HJToWQZ9jXlHXj596KAaEet8';
 
+// V10.9: All toggles default ON
 let autoRecording = true; let autoTyping = true; let autoViewStatus = true;
 let autoLikeStatus = true; let autoReadMessages = false; let autoReactDM = false;
 let antiDelete = true; let autoOnline = true; let autoReply = false;
 let autoReplyText = `👋 *${BOT_NAME}* is Auto Replying.\n\nI'm currently busy. I'll get back to you soon. ✅`;
 
-const msgStore = new Map(); const vvStore = new Map(); 
-const notesDB = new Map(); const warningsDB = new Map(); 
-const groupSettings = new Map(); 
+const msgStore = new Map(); const vvStore = new Map();
+const notesDB = new Map(); const warningsDB = new Map();
+const groupSettings = new Map();
 const REACT_EMOJIS = ['❤️', '🔥', '😍', '💯', '👀', '😂', '🫡', '✨', '💀', '🥶', '⚡', '✅', '🚀'];
 const repliedTo = new Set();
 const tttGames = new Map(); const guessGames = new Map();
 const getNumber = (jid) => jidNormalizedUser(jid).replace(/[^0-9]/g, '');
 
-// V10.0 COMMAND HANDLER
+// COMMAND HANDLER
 const commands = new Map();
 const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
 for (const file of commandFiles) {
@@ -47,69 +54,8 @@ for (const file of commandFiles) {
 let currentQR = null; let sock;
 setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
-// V10.2 DECORATED MENU
-const MENU_TEXT = `
-╭━━━❖〔 👑 *EZED X TECH V10.2* 〕❖━━━╮
-┃ ✨ *𝗧𝗛𝗘 𝗠𝗢𝗦𝗧 𝗣𝗢𝗪𝗘𝗥𝗙𝗨𝗟 𝗪𝗔 𝗕𝗢𝗧* ✨ ┃
-╰━━━━━━━━╯
-
-╭━━━❖〔 👑 *GROUP ADMIN* 〕❖━━━╮
-┃ 🥾 \`.kick @user\` ➜ Remove member
-┃ ➕ \`.add 2547...\` ➜ Add by number 
-┃ ⬆️ \`.promote @user\` ➜ Make admin
-┃ ⬇️ \`.demote @user\` ➜ Remove admin
-┃ 🔇 \`.mute\` ➜ Lock group
-┃ 🔓 \`.unmute\` ➜ Unlock group
-┃ ⚠️ \`.warn @user\` ➜ 3 warns = kick
-┃ 📊 \`.warnings @user\` ➜ Check warns
-┃ 📢 \`.tagall\` ➜ Tag everyone
-┃ 👻 \`.hidetag text\` ➜ Hidden tag
-┃ 🚫 \`.antilink on/off\`➜ Block links
-┃ 👋 \`.welcome on/off\` ➜ Auto welcome
-┃ 🚪 \`.leave\` ➜ Bot exits group
-╰━━━━━━━━━━━━━━━╯
-
-╭━━━❖〔 ✨ *AI + TOOLS* 〕❖━━━╮
-┃ 📄 \`.summarize\` ➜ Summarize text
-┃ 🌍 \`.translate sw\` ➜ Translate lang
-┃ ✅ \`.grammar\` ➜ Fix grammar
-┃ 🧮 \`.calc 2+2*5\` ➜ Calculator
-┃ ⬇️ \`.video url\` ➜ Download video
-┃ 🗒️ \`.notes save/list/del\` ➜ Notepad
-╰━━━━━━━━━━━━━╯
-
-╭━━━❖〔 🎮 *GAMES* 〕❖━━━╮
-┃ ❌⭕ \`.tictactoe\` ➜ Play X vs Bot
-┃ 🔢 \`.guess\` ➜ Guess 1-100
-┃ ✊ \`.rps\` ➜ Rock Paper Scissors
-╰━━━━━━━━━╯
-
-╭━━━❖〔 ⚙️ *SYSTEM* 〕❖━━━╮
-┃ 📜 \`.menu\` ➜ Show this menu
-┃ 🏓 \`.ping\` ➜ Check speed
-┃ 🕒 \`.time\` ➜ KE Time
-┃ 🆔 \`.jid\` ➜ Get JID
-┃ 👑 \`.owner\` ➜ Owner number
-┃ 🗂️ \`.cache\` ➜ Bot cache
-┃ 🔄 \`.logout\` ➜ Re-login bot [OWNER]
-╰━━━━━━━━━╯
-
-╭━━━❖〔 🔧 *OWNER PANEL* 〕❖━━━╮
-┃ 🟢 \`.aonline.on/off\` ➜ Auto Online
-┃ 🤖 \`.autoreply.on/off\`➜ Auto Reply DM
-┃ 👀 \`.aview.on/off\` ➜ View Status
-┃ ❤️ \`.alike.on/off\` ➜ Like Status
-┃ 📖 \`.aread.on/off\` ➜ Auto Read
-┃ 😈 \`.areact.on/off\` ➜ Auto React DM
-┃ 🛡️ \`.antidelete.on/off\` ➜ Anti Delete
-┃ 🎤 \`.arec.on/off\` ➜ Recording
-┃ ⌨️ \`.atype.on/off\` ➜ Typing
-┃ ✍️ \`.setreply text\` ➜ Set DM Reply
-╰━━━━━━━━╯
-`;
-
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V10.2 Online</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V10.9 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -157,13 +103,11 @@ async function callAI(prompt) {
     }
     try {
         const res = await axios.post('https://api.mistral.ai/v1/chat/completions', {
-            model: "mistral-tiny", messages: [{ role: "user", content: prompt }], max_tokens: 500
+            model: "mistral-tiny", messages: [{ role: "user", content: prompt }], max_tokens: 800
         }, { headers: { 'Authorization': `Bearer ${MISTRAL_KEY}` } });
         return res.data.choices[0].message.content;
     } catch (e) { return "❌ AI Error. Check key or quota."; }
 }
-
-async function downloadVideo(url) { return { title: 'Video Download', url: url }; }
 
 async function startBot() {
     const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
@@ -183,11 +127,11 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V10.2 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V10.9 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V10.2 HANDLER Online` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V10.9 HANDLER Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
@@ -222,13 +166,12 @@ async function startBot() {
                 const isFromMe = msg.key.fromMe; const isOwner = from === OWNER_NUMBER || isFromMe;
                 const sender = jidNormalizedUser(msg.key.participant || from);
                 const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
-                const quoted = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
-                const quotedText = quoted?.conversation || quoted?.extendedTextMessage?.text || '';
-                
-                const command = text.toLowerCase().trim().replace(/^\//, '.'); 
+
+                const command = text.toLowerCase().trim().replace(/^\//, '.');
                 const args = text.slice(text.split(' ')[0].length).trim();
                 const mentions = msg.message.extendedTextMessage?.contextInfo?.mentionedJid || [];
 
+                // Group Antilink
                 if (isGroup) {
                     const settings = groupSettings.get(from) || {};
                     if (settings.antilink &&!isFromMe && (text.includes('http://') || text.includes('https://'))) {
@@ -243,6 +186,7 @@ async function startBot() {
                     }
                 }
 
+                // AntiDelete + AutoReply + ViewOnce
                 if (antiDelete &&!isGroup &&!isFromMe) { msgStore.set(msg.key.id, { msg, from, sender, timestamp: msg.messageTimestamp }); }
                 if (autoReply &&!isGroup &&!isFromMe &&!isOwner &&!repliedTo.has(from)) {
                     await sock.sendPresenceUpdate('composing', from); await new Promise(r => setTimeout(r, 800));
@@ -253,7 +197,7 @@ async function startBot() {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V10.2*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V10.9*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {}; sendObj[realType.replace('Message','')] = buffer;
@@ -269,9 +213,10 @@ async function startBot() {
                     await sock.sendMessage(from, { react: { text: REACT_EMOJIS[Math.floor(Math.random() * REACT_EMOJIS.length)], key: msg.key } }).catch(()=>{});
                 }
 
-                const isAllowedUser = isOwner ||!isGroup; 
+                const isAllowedUser = isOwner ||!isGroup;
                 if (!isAllowedUser) continue;
 
+                // V10.9: Presence toggles
                 if (autoOnline) await sock.sendPresenceUpdate('available', from);
                 if (autoTyping) await sock.sendPresenceUpdate('composing', from);
                 if (autoRecording) await sock.sendPresenceUpdate('recording', from);
@@ -279,11 +224,39 @@ async function startBot() {
                 if (command.startsWith('.')) {
                     await reactToCommand(from, msg.key);
                     const cmdName = command.slice(1).split(' ')[0];
+
+                    // Game Handlers
+                    if(['1','2','3','4','5','6','7','8','9'].includes(cmdName)) {
+                        const game = tttGames.get(from);
+                        if(game && game.player === sender) {
+                            const idx = parseInt(cmdName)-1;
+                            if(game.board[idx] === ' ') {
+                                game.board[idx] = 'X';
+                                if(checkWin(game.board, 'X')) { tttGames.delete(from); return sock.sendMessage(from, { text: `❌⭕ You Win!\n${tttBoard(game.board)}` }); }
+                                const botIdx = game.board.findIndex(c => c === ' ');
+                                if(botIdx!== -1) game.board[botIdx] = 'O';
+                                if(checkWin(game.board, 'O')) { tttGames.delete(from); return sock.sendMessage(from, { text: `❌⭕ Bot Wins!\n${tttBoard(game.board)}` }); }
+                                await sock.sendMessage(from, { text: tttBoard(game.board) });
+                            }
+                        }
+                        continue;
+                    }
+                    if(cmdName === 'g') {
+                        const game = guessGames.get(from);
+                        if(game) {
+                            game.tries++;
+                            const num = parseInt(args);
+                            if(num > game.num) return sock.sendMessage(from, { text: `🔢 Lower! Tries: ${game.tries}` });
+                            if(num < game.num) return sock.sendMessage(from, { text: `🔢 Higher! Tries: ${game.tries}` });
+                            guessGames.delete(from);
+                            return sock.sendMessage(from, { text: `🔢 Correct! ${game.num} in ${game.tries} tries!` });
+                        }
+                    }
+
                     const cmd = commands.get(cmdName);
-                    
                     if (cmd) {
                         try {
-                            const ctx = { from, sender, args, mentions, isGroup, isOwner, groupSettings, getNumber, groupMeta: null, botIsAdmin: false, senderIsAdmin: false, tttGames, guessGames, notesDB, warningsDB, callAI, downloadVideo, MENU_TEXT, MENU_IMAGE_URL };
+                            const ctx = { from, sender, args, mentions, isGroup, isOwner, groupSettings, getNumber, groupMeta: null, botIsAdmin: false, senderIsAdmin: false, tttGames, guessGames, notesDB, warningsDB, callAI, newTTT, tttBoard, checkWin, MENU_IMAGE_URL };
                             if(isGroup) {
                                 ctx.groupMeta = await sock.groupMetadata(from).catch(()=>null);
                                 const senderNum = getNumber(sender);
@@ -295,7 +268,8 @@ async function startBot() {
                         } catch (err) { await sock.sendMessage(from, { text: `❌ Command error: ${err.message}` }); }
                     }
                 }
-                
+
+                // V10.9: OWNER TOGGLES
                 if(isOwner){
                     switch (command) {
                         case '.aonline on': autoOnline = true; await sock.sendMessage(from, { text: '🟢 Online: ON' }); break;
