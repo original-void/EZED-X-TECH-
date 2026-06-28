@@ -1,7 +1,8 @@
 const ytSearch = require('yt-search');
-const ytDlpExec = require('yt-dlp-exec');
+const YTDlpWrap = require('yt-dlp-wrap').default;
 const fs = require('fs');
 const path = require('path');
+const ytDlp = new YTDlpWrap('/usr/local/bin/yt-dlp');
 
 module.exports = {
     name: 'song',
@@ -13,18 +14,11 @@ module.exports = {
             if(!video) return sock.sendMessage(from, { text: '❌ No song found' });
 
             const filePath = path.join(__dirname, `../temp_${Date.now()}.mp3`);
-            await ytDlpExec(video.url, {
-                output: filePath,
-                extractAudio: true,
-                audioFormat: 'mp3',
-                noPlaylist: true,
-                noCheckCertificates: true,
-                preferInsecure: true,
-            });
+            await ytDlp.execPromise([video.url, '-x', '--audio-format', 'mp3', '-o', filePath]);
 
             const buffer = fs.readFileSync(filePath);
             await sock.sendMessage(from, { audio: buffer, mimetype: 'audio/mpeg', fileName: `${video.title}.mp3`, caption: `🎵 *${video.title}*` });
-            fs.unlinkSync(filePath); // delete after send
+            fs.unlinkSync(filePath);
         } catch(e) {
             await sock.sendMessage(from, { text: `❌ Failed: ${e.message}`, edit: sentMsg.key });
         }
