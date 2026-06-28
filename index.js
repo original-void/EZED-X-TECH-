@@ -17,7 +17,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const BOT_NAME = 'EZED X TECH';
-const OWNER_NUMBER = '254769532338@s.whatsapp.net';
+const OWNER_NUMBER = '87433337143370@s.whatsapp.net'; // V9.7: Your LID from.jid
 const MENU_IMAGE_URL = 'https://files.catbox.moe/poo7ky.png';
 const RENDER_URL = 'https://ezed-x-tech-2.onrender.com';
 const MISTRAL_KEY = 'PASTE_MISTRAL_KEY_HERE';
@@ -53,7 +53,7 @@ setInterval(() => { axios.get(RENDER_URL).catch(()=>{}); }, 3 * 60 * 1000);
 
 const MENU_TEXT = `
 ╭━━━━━━━━━━━━━╮
-┃ 👑 *${BOT_NAME} V9.5* 👑 ┃
+┃ 👑 *${BOT_NAME} V9.7* 👑 ┃
 ┃ *𝗣𝗨𝗕𝗟𝗜𝗖 + 𝗔𝗗𝗠𝗜𝗡 𝗕𝗢𝗧* ┃
 ╰━━━━━━━━━━━━━╯
 
@@ -90,7 +90,7 @@ const MENU_TEXT = `
 `;
 
 app.get('/', async (req, res) => {
-    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V9.5 Online</h1>`);
+    if (!currentQR) return res.send(`<h1>🤖 ${BOT_NAME} V9.7 Online</h1>`);
     const qrImage = await QRCode.toDataURL(currentQR);
     res.send(`<div style="text-align:center;padding:40px;"><h1>🤖 Scan QR</h1><img src="${qrImage}" style="width:320px;" /></div>`);
 });
@@ -178,11 +178,11 @@ async function startBot() {
         if (qr) {
             currentQR = qr;
             const qrBuffer = await QRCode.toBuffer(qr);
-            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V9.5 QR*` }).catch(()=>{});
+            await sock.sendMessage(OWNER_NUMBER, { image: qrBuffer, caption: `*${BOT_NAME} V9.7 QR*` }).catch(()=>{});
         }
         if (connection === 'open') {
             currentQR = null;
-            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V9.5 NUMBERS ONLY Online` });
+            await sock.sendMessage(OWNER_NUMBER, { text: `✅ ${BOT_NAME} V9.7 LID OWNER Online` });
         } else if (connection === 'close' && update.lastDisconnect.error?.output?.statusCode!== DisconnectReason.loggedOut) {
             startBot();
         }
@@ -265,7 +265,7 @@ async function startBot() {
                     const { isVV, realType, realMsg } = unwrapViewOnce(msg);
                     if (isVV) {
                         const fromName = await sock.getName(from) || from.split('@')[0];
-                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V9.5*\nFrom: ${fromName}` });
+                        await sock.sendMessage(OWNER_NUMBER, { text: `👻 *VIEW ONCE V9.7*\nFrom: ${fromName}` });
                         try {
                             const buffer = await downloadMediaMessage({ key: msg.key, message: realMsg }, 'buffer', {}, { reuploadRequest: sock.updateMediaMessage });
                             const sendObj = {};
@@ -294,7 +294,7 @@ async function startBot() {
                     await reactToCommand(from, msg.key);
                 }
 
-                // ===== GROUP ADMIN COMMANDS V9.5 NUMBERS ONLY =====
+                // ===== GROUP ADMIN COMMANDS V9.7 NUMBERS ONLY =====
                 if (isGroup && isOwner) {
                     const groupMeta = await sock.groupMetadata(from).catch(()=>null);
                     if(!groupMeta) return sock.sendMessage(from, { text: '❌ Could not get group data' });
@@ -305,13 +305,13 @@ async function startBot() {
                     const senderIsAdmin = groupMeta.participants.find(p => getNumber(p.id) === senderNum)?.admin;
                     const botIsAdmin = groupMeta.participants.find(p => getNumber(p.id) === botNum)?.admin;
                     
-                    // DEBUG
+                    // DEBUG V9.7
                     if(command.startsWith('.kick')) {
-                        await sock.sendMessage(OWNER_NUMBER, { 
-                            text: `🧪 *DEBUG V9.5*
-Bot Num: ${botNum} Admin: ${botIsAdmin}
-You Num: ${senderNum} Admin: ${senderIsAdmin}` 
+                        let list = `🧪 *DEBUG V9.7*\nBot Num: ${botNum} Admin: ${botIsAdmin}\nYou Num: ${senderNum} Admin: ${senderIsAdmin}\n\n*All in group:*\n`;
+                        groupMeta.participants.forEach(p => {
+                            list += `-> ${getNumber(p.id)} Admin: ${p.admin}\n`;
                         });
+                        await sock.sendMessage(OWNER_NUMBER, { text: list });
                     }
 
                     if(!botIsAdmin && ['.kick','.add','.promote','.demote','.mute','.unmute'].includes(command.split(' ')[0])){
@@ -540,7 +540,7 @@ You Num: ${senderNum} Admin: ${senderIsAdmin}`
                     case '.ping': const s = Date.now(); await sock.sendMessage(from, { text: `🏓 Pong \`${Date.now() - s}ms\`` }); break;
                     case '.time': await sock.sendMessage(from, { text: `🕒 \`${new Date().toLocaleString('en-KE', { timeZone: 'Africa/Nairobi' })}\`` }); break;
                     case '.jid': await sock.sendMessage(from, { text: `🆔 \`${from}\`` }); break;
-                    case '.owner': await sock.sendMessage(from, { text: '👑 254769532338' }); break;
+                    case '.owner': await sock.sendMessage(from, { text: '👑 87433337143370' }); break;
                     case '.cache': await sock.sendMessage(from, { text: `🗂️ Cache:\`${msgStore.size}\`\n👻 VV:\`${vvStore.size}\`` }); break;
                     case '.logs': await sock.sendMessage(from, { text: `🧪 VV Count:\`${vvStore.size}\`` }); break;
                 }
