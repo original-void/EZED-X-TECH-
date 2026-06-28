@@ -8,18 +8,22 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const AUTH_PATH = 'auth';
 let qrCodeData = null;
+let rawQrText = null;
 
-// 1. NUKE AUTH FOLDER ON EVERY BOOT - THIS FORCES QR
+// 1. DELETE AUTH EVERY BOOT. RENDER FREE KEEPS IT
 if (fs.existsSync(AUTH_PATH)) {
     fs.rmSync(AUTH_PATH, { recursive: true, force: true });
-    console.log(`🗑️ Deleted ${AUTH_PATH} to force new QR`);
+    console.log(`🗑️ Deleted ${AUTH_PATH}`);
 }
 
 app.get('/', (req, res) => {
-    if (!qrCodeData) {
-        return res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Status: Generating QR... Wait 15s</h2><meta http-equiv="refresh" content="10">`);
+    if (rawQrText && !qrCodeData) {
+        return res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>QR Image Failed. Use this text:</h2><textarea style="width:90%;height:80px">${rawQrText}</textarea><p>Paste this text into https://www.qrcode-monkey.com/</p><meta http-equiv="refresh" content="5">`);
     }
-    res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Scan QR to Connect</h2><img src="${qrCodeData}" style="width:350px;border:2px solid #000"/><p>WhatsApp > 3 dots > Linked Devices > Link a device</p>`);
+    if (!qrCodeData) {
+        return res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Status: Waiting for QR... 60s timeout</h2><meta http-equiv="refresh" content="5">`);
+    }
+    res.send(`<h1>🤖 Ezed-X-Tech Bot</h1><h2>Scan QR Now</h2><img src="${qrCodeData}" style="width:350px;border:2px solid #000"/><p>WhatsApp > 3 dots > Linked Devices > Link a device</p>`);
 });
 
 app.listen(PORT, () => console.log(`✅ Web on ${PORT}`));
@@ -40,27 +44,33 @@ async function startBot() {
     const sock = makeWASocket({ 
         auth: state, 
         browser: Browsers.macOS('Desktop'),
-        printQRInTerminal: false 
+        printQRInTerminal: false,
+        qrTimeout: 60000 // 2. WAIT 60s FOR QR INSTEAD OF 20s
     });
 
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
+        console.log('UPDATE:', update);
 
         if (qr) {
-            qrCodeData = await QRCode.toDataURL(qr);
-            console.log(`✅ QR Ready on Homepage NOW`);
+            rawQrText = qr; // 3. SAVE RAW TEXT TOO
+            qrCodeData = await QRCode.toDataURL(qr).catch(e => {
+                console.log('QR IMG FAIL:', e);
+                return null;
+            });
+            console.log(`✅ QR RECEIVED. RAW: ${qr}`);
         }
 
         if (connection === 'close') {
-            console.log('Connection closed:', lastDisconnect.error);
             qrCodeData = null;
-            if ((lastDisconnect.error)?.output?.statusCode!== DisconnectReason.loggedOut) {
-                startBot();
-            }
+            rawQrText = null;
+            console.log('Closed:', lastDisconnect.error);
+            if ((lastDisconnect.error)?.output?.statusCode!== DisconnectReason.loggedOut) startBot();
         } else if (connection === 'open') {
             qrCodeData = null;
+            rawQrText = null;
             console.log('✅ Bot Connected!');
         }
     });
